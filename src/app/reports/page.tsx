@@ -81,7 +81,7 @@ export default function ReportsPage() {
                         setFrom(p.from());
                         setTo("");
                       }}
-                      className="rounded-full bg-white/[0.06] px-3 py-1.5 text-xs text-muted transition-colors duration-500 ease-spring hover:bg-white/10 hover:text-fg"
+                      className="rounded-full bg-ink/[0.06] px-3 py-1.5 text-xs text-muted transition-colors duration-500 ease-spring hover:bg-ink/10 hover:text-fg"
                     >
                       {p.label}
                     </button>
@@ -89,7 +89,7 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3 border-t border-white/5 pt-6">
+              <div className="flex flex-wrap gap-3 border-t border-ink/10 pt-6">
                 <Pill href={`${summaryUrl}${summaryUrl.includes("?") ? "&" : "?"}download=1`} icon={DownloadSimple} external>
                   Download summary PDF
                 </Pill>

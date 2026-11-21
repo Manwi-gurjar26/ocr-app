@@ -29,7 +29,7 @@ export default function Dashboard() {
               <h1 className="max-w-xl text-5xl font-semibold leading-[0.95] tracking-[-0.045em] md:text-7xl">
                 Paper in.
                 <br />
-                <span className="bg-gradient-to-r from-[#7cd4ff] via-[#a594ff] to-[#ff9ac2] bg-clip-text text-transparent">Data out.</span>
+                <span className="hero-gradient">Data out.</span>
               </h1>
               <p className="max-w-md text-[15px] leading-relaxed text-muted">
                 Drop invoices, receipts and ID cards. DocScan reads them, pulls out every field, files it in your database and
@@ -60,7 +60,7 @@ export default function Dashboard() {
             </div>
             <AppIcon icon={Files} tone="teal" size={48} />
           </div>
-          <div className="mt-6 flex h-2 overflow-hidden rounded-full bg-white/5">
+          <div className="mt-6 flex h-2 overflow-hidden rounded-full bg-ink/5">
             {tiles.map((t, i) => (
               <motion.div
                 key={t.label}
@@ -132,7 +132,7 @@ export default function Dashboard() {
                 const h = headline(d.docType, d.fields);
                 return (
                   <motion.li key={d.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.6, ease: [0.32, 0.72, 0, 1] }}>
-                    <Link href={`/documents/${d.id}`} className="flex items-center gap-4 rounded-2xl p-3 transition-colors duration-500 ease-spring hover:bg-white/[0.05]">
+                    <Link href={`/documents/${d.id}`} className="flex items-center gap-4 rounded-2xl p-3 transition-colors duration-500 ease-spring hover:bg-ink/[0.05]">
                       <TypeIcon type={d.docType} size={40} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[15px] font-medium">{h.title ?? d.fileName}</p>

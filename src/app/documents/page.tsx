@@ -56,7 +56,7 @@ function DocumentsInner() {
         </label>
       </Reveal>
 
-      {error && <p className="text-rose-300">{error}</p>}
+      {error && <p className="text-danger">{error}</p>}
 
       <Bezel coreClassName="p-2 md:p-3">
         {!data ? (
@@ -86,7 +86,7 @@ function DocumentsInner() {
                   >
                     <Link
                       href={`/documents/${d.id}`}
-                      className="group flex items-center gap-4 rounded-[1.4rem] p-3 transition-colors duration-500 ease-spring hover:bg-white/[0.05] md:p-4"
+                      className="group flex items-center gap-4 rounded-[1.4rem] p-3 transition-colors duration-500 ease-spring hover:bg-ink/[0.05] md:p-4"
                     >
                       <TypeIcon type={d.docType} size={46} />
                       <div className="min-w-0 flex-1">

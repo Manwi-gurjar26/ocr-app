@@ -85,7 +85,7 @@ export default function DocumentPage() {
     router.push("/documents");
   };
 
-  if (error) return <p className="text-rose-300">{error}</p>;
+  if (error) return <p className="text-danger">{error}</p>;
   if (!doc)
     return (
       <div className="grid gap-6 md:grid-cols-2">
@@ -131,7 +131,7 @@ export default function DocumentPage() {
       </Reveal>
 
       {doc.status === "failed" && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-danger">
           <WarningCircle size={18} /> {doc.error}
         </div>
       )}
@@ -140,7 +140,7 @@ export default function DocumentPage() {
         {/* Preview */}
         <Reveal className="lg:col-span-5">
           <Bezel coreClassName="p-3">
-            <div className="relative overflow-hidden rounded-[1.4rem] bg-black/40">
+            <div className="relative overflow-hidden rounded-[1.4rem] bg-well">
               {doc.mimeType === "application/pdf" ? (
                 <iframe src={fileUrl} title="Document preview" className="h-[70vh] w-full" />
               ) : (
@@ -149,7 +149,7 @@ export default function DocumentPage() {
               )}
               {doc.status === "processing" && (
                 <>
-                  <div className="absolute inset-0 bg-[#05060a]/40" />
+                  <div className="absolute inset-0 bg-bg/40" />
                   <div className="scan-line" />
                 </>
               )}
@@ -184,7 +184,7 @@ export default function DocumentPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-2xl bg-black/30 p-5 font-mono text-[12.5px] leading-relaxed text-fg/80"
+                  className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-2xl bg-well p-5 font-mono text-[12.5px] leading-relaxed text-fg/80"
                 >
                   {doc.rawText || "No text recognised."}
                 </motion.pre>
@@ -210,7 +210,7 @@ export default function DocumentPage() {
                               <select className="field" value={(v as string) ?? ""} onChange={(e) => set(e.target.value || null)}>
                                 <option value="">—</option>
                                 {Object.entries(ID_TYPE_LABEL).map(([k, l]) => (
-                                  <option key={k} value={k} className="bg-[#111]">
+                                  <option key={k} value={k}>
                                     {l}
                                   </option>
                                 ))}
@@ -241,7 +241,7 @@ export default function DocumentPage() {
                   {items.length > 0 && (
                     <div>
                       <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Line items</p>
-                      <div className="overflow-hidden rounded-2xl bg-black/20">
+                      <div className="overflow-hidden rounded-2xl bg-well">
                         <table className="w-full text-sm">
                           <thead className="text-left text-[11px] uppercase tracking-wider text-faint">
                             <tr>
@@ -252,7 +252,7 @@ export default function DocumentPage() {
                           </thead>
                           <tbody>
                             {items.map((it, i) => (
-                              <tr key={i} className="border-t border-white/5">
+                              <tr key={i} className="border-t border-ink/10">
                                 <td className="p-3">{it.description}</td>
                                 <td className="p-3 text-right font-mono">{it.quantity ?? ""}</td>
                                 <td className="p-3 text-right font-mono">{formatMoney(it.amount, fields.currency)}</td>
@@ -267,7 +267,7 @@ export default function DocumentPage() {
               )}
             </AnimatePresence>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-white/5 pt-6">
+            <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-ink/10 pt-6">
               <Pill onClick={save} icon={FloppyDisk} busy={saving} disabled={!dirty}>
                 Save changes
               </Pill>

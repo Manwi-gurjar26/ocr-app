@@ -4,6 +4,7 @@ import { ChartPieSlice, Files, Scan, SquaresFour, type Icon } from "@phosphor-ic
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./theme";
 import { AppIcon, cn, spring, type Tone } from "./ui";
 
 const LINKS: { href: string; label: string; icon: Icon; tone: Tone }[] = [
@@ -30,7 +31,7 @@ export function Nav() {
       >
         <div className="glass glass-refract flex items-center gap-1 rounded-full p-1.5 pl-4">
           <Link href="/" className="relative z-[2] mr-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-gradient-to-br from-[#5ac8fa] to-[#4b3ce0] text-[11px] font-bold">D</span>
+            <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-gradient-to-br from-[#5ac8fa] to-[#4b3ce0] text-[11px] font-bold text-white">D</span>
             DocScan
           </Link>
           {LINKS.map((l) => {
@@ -45,14 +46,29 @@ export function Nav() {
                 )}
               >
                 {active && (
-                  <motion.span layoutId="nav-pill" transition={spring} className="absolute inset-0 -z-10 rounded-full bg-white/[0.12] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]" />
+                  <motion.span layoutId="nav-pill" transition={spring} className="glass-pill absolute inset-0 -z-10 rounded-full" />
                 )}
                 {l.label}
               </Link>
             );
           })}
+          <span aria-hidden className="relative z-[2] mx-1.5 h-5 w-px bg-ink/15" />
+          <ThemeToggle id="desktop" />
         </div>
       </motion.nav>
+
+      {/* Mobile: theme switch floats top-right */}
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ ...spring, delay: 0.2 }}
+        className="fixed right-4 top-4 z-30 md:hidden"
+        style={{ marginTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="glass glass-refract rounded-full p-1">
+          <ThemeToggle id="mobile" />
+        </div>
+      </motion.div>
 
       <motion.nav
         initial={{ y: 80, opacity: 0 }}

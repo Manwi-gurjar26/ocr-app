@@ -102,11 +102,7 @@ export default function ScanPage() {
               "focus-visible:ring-2 focus-visible:ring-sky-400/60",
             )}
           >
-            <motion.div
-              aria-hidden
-              className="pointer-events-none absolute inset-4 rounded-[1.5rem] border-2 border-dashed"
-              animate={{ borderColor: drag ? "rgba(90,200,250,0.7)" : "rgba(255,255,255,0.1)" }}
-            />
+            <div aria-hidden data-drag={drag} className="drop-zone pointer-events-none absolute inset-4 rounded-[1.5rem] border-2 border-dashed" />
             <motion.div animate={{ y: drag ? -8 : [0, -6, 0] }} transition={drag ? spring : { duration: 3.2, repeat: Infinity, ease: [0.32, 0.72, 0, 1] }}>
               <AppIcon icon={CloudArrowUp} tone="blue" size={84} />
             </motion.div>
@@ -114,9 +110,9 @@ export default function ScanPage() {
               <p className="text-2xl font-semibold tracking-tight">{drag ? "Release to scan" : "Drag files here"}</p>
               <p className="text-sm text-muted">or click to browse your device</p>
             </div>
-            <span className="inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-white to-[#dfe6ff] py-1.5 pl-5 pr-1.5 text-sm font-medium text-[#0b0d14] shadow-[0_10px_30px_-10px_rgba(120,160,255,0.65)]">
+            <span className="inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-btn-from to-btn-to py-1.5 pl-5 pr-1.5 text-sm font-medium text-btn-fg shadow-[0_10px_30px_-10px_var(--btn-glow),inset_0_1px_0_var(--btn-hi)]">
               {uploading ? "Uploading…" : "Choose files"}
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[#0b0d14]/[0.08]">
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-btn-fg/10">
                 {uploading ? <CircleNotch size={16} className="animate-spin" /> : <Files size={16} weight="bold" />}
               </span>
             </span>
@@ -142,7 +138,7 @@ export default function ScanPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-4 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-rose-200"
+            className="mt-4 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-danger"
           >
             <WarningCircle size={18} /> {err}
           </motion.div>
@@ -158,7 +154,7 @@ export default function ScanPage() {
               return (
                 <motion.div key={doc.id} layout initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={spring}>
                   <Bezel coreClassName="p-3">
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-black/30">
+                    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.25rem] bg-well">
                       {preview ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={preview} alt="" className="h-full w-full object-cover object-top opacity-90" />
@@ -169,7 +165,7 @@ export default function ScanPage() {
                       )}
                       {busy && (
                         <>
-                          <div className="absolute inset-0 bg-[#05060a]/40" />
+                          <div className="absolute inset-0 bg-bg/40" />
                           <div className="scan-line" />
                         </>
                       )}
@@ -186,7 +182,7 @@ export default function ScanPage() {
                         </p>
                       </div>
                       {!busy && (
-                        <Link href={`/documents/${doc.id}`} aria-label="Open" className="grid h-9 w-9 place-items-center rounded-full bg-white/10 transition-transform duration-500 ease-spring hover:scale-110">
+                        <Link href={`/documents/${doc.id}`} aria-label="Open" className="grid h-9 w-9 place-items-center rounded-full bg-ink/10 transition-transform duration-500 ease-spring hover:scale-110">
                           <ArrowRight size={16} weight="bold" />
                         </Link>
                       )}
