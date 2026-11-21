@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DocScan — OCR for invoices, receipts & ID cards
 
-## Getting Started
+Upload scanned documents → OCR → auto-classify → extract fields → store in PostgreSQL → export PDF reports.
+Next.js 16 · TypeScript · PostgreSQL 18 · Drizzle · Tesseract.js · Claude vision (optional) · pdf-lib · Motion.
 
-First, run the development server:
+## Run it
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```powershell
+npm run db:start      # start the project Postgres (port 5433)
+npm run db:migrate    # create/update tables (app + test DBs)
+npm run dev           # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Try it with the demo files in `samples/` (regenerate with `npm run samples`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Optional: AI extraction
+Put an Anthropic key in `.env` → `ANTHROPIC_API_KEY=sk-ant-...` and restart. Each page is then read by
+Claude (`claude-opus-5-5`) for much better accuracy on photos, messy layouts and line items. If the AI call
+fails or no key is set, the offline rules engine is used automatically. Note: with a key set, document
+images are sent to Anthropic's API.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How it works
 
-## Learn More
+| Step | Code |
+|---|---|
+| Upload & validation (PNG/JPG/WEBP/PDF, ≤10 MB, ≤20 files) | `src/app/api/documents/route.ts`, `src/lib/pipeline.ts` |
+| OCR: image cleanup (sharp) + Tesseract; PDF text layer or render-then-OCR | `src/lib/ocr/` |
+| Classify invoice / receipt / ID card | `src/lib/extract/classify.ts` |
+| Field rules (GSTIN, totals, CGST/SGST, Aadhaar, PAN, passport, DL, voter ID) | `src/lib/extract/rules/` |
+| AI extraction with structured output | `src/lib/extract/ai.ts` |
+| Database (table `documents`, fields as JSONB) | `src/db/schema.ts`, `src/lib/documents-repo.ts` |
+| PDF reports (single document + summary) | `src/lib/reports/` |
+| UI (liquid glass, iOS app icons) | `src/app/`, `src/components/` |
 
-To learn more about Next.js, take a look at the following resources:
+OCR runs in the background after upload (`after()`), and the UI polls until each document is done.
+Aadhaar numbers are masked (`XXXX XXXX 1234`) in the UI and in reports unless revealed.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Method | Path | |
+|---|---|---|
+| POST | `/api/documents` | multipart `files` (one or more) |
+| GET | `/api/documents?type=&q=&from=&to=&limit=&offset=` | list / search |
+| GET · PATCH · DELETE | `/api/documents/:id` | PATCH body `{ docType?, fields? }` |
+| POST | `/api/documents/:id/reprocess` | re-run OCR |
+| GET | `/api/documents/:id/file` | original upload |
+| GET | `/api/documents/:id/report[?download=1]` | PDF report |
+| GET | `/api/reports/summary?type=&from=&to=[&download=1]` | summary PDF |
+| GET | `/api/stats` | counts + AI status |
 
-## Deploy on Vercel
+## Tests
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```powershell
+npm test            # 34 unit + integration tests (uses the ocr_app_test DB)
+npm run typecheck
+npm run smoke       # end-to-end API check against a running dev server
+npm run e2e         # Playwright UI flow on desktop + mobile
+```
