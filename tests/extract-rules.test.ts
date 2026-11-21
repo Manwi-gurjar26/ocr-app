@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classify } from "@/lib/extract/classify";
-import { amountsIn, normalizeDate, parseAmount } from "@/lib/extract/parse";
+import { amountsIn, detectCurrency, normalizeDate, parseAmount } from "@/lib/extract/parse";
 import { extractIdCard, maskIdNumber } from "@/lib/extract/rules/id-card";
 import { extractInvoice } from "@/lib/extract/rules/invoice";
 import { extractReceipt } from "@/lib/extract/rules/receipt";
@@ -108,8 +108,26 @@ describe("receipt rules", () => {
       subtotal: 139,
       tax: 7,
       total: 146,
+      currency: "INR",
     });
     expect(f.items?.map((i) => i.description)).toEqual(["Amul Milk 1L", "Britannia Bread", "Tata Salt 1kg"]);
+  });
+});
+
+describe("currency detection", () => {
+  it("recognises Indian signals beyond the rupee sign", () => {
+    expect(detectCurrency("GST 7.00\nTOTAL 146.00")).toBe("INR");
+    expect(detectCurrency("Paid by UPI")).toBe("INR");
+    expect(detectCurrency("Paid via PhonePe")).toBe("INR");
+    expect(detectCurrency("Rupees one hundred only")).toBe("INR");
+    expect(detectCurrency("Total $12.50")).toBe("USD");
+    expect(detectCurrency("hello world")).toBeNull();
+  });
+
+  it("defaults receipts and invoices with amounts but no currency clue to INR", () => {
+    expect(extractReceipt("CORNER SHOP\nBread  40.00\nTOTAL  40.00").currency).toBe("INR");
+    expect(extractReceipt("STORE\nTotal $12.50").currency).toBe("USD");
+    expect(extractInvoice("ACME LTD\nInvoice No: A-1\nTotal: 500.00").currency).toBe("INR");
   });
 });
 

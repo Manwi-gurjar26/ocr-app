@@ -109,11 +109,22 @@ export function amountAfter(text: string, labelsInPriority: RegExp[]): number | 
 }
 
 export function detectCurrency(text: string): string | null {
-  if (/₹|\brs\.?\s*\d|\binr\b|gstin|cgst|sgst/i.test(text)) return "INR";
+  // Explicit foreign symbols win over indirect Indian signals (GST/UPI also appear on tourist receipts rarely).
+  if (/₹|\brs\.?\s*\d|\binr\b|\brupees?\b/i.test(text)) return "INR";
   if (/\$|\busd\b/i.test(text)) return "USD";
   if (/€|\beur\b/i.test(text)) return "EUR";
   if (/£|\bgbp\b/i.test(text)) return "GBP";
+  // Indirect Indian signals: GST taxes, Indian payment rails.
+  if (/gstin|\b[cs]?gst\b|\bigst\b|\bupi\b|paytm|phonepe|g\s?pay|bhim/i.test(text)) return "INR";
   return null;
+}
+
+/**
+ * Currency for a money document. DocScan is India-first (the UI already formats a missing
+ * currency as ₹), so a document with amounts but no currency clue is stored as INR.
+ */
+export function moneyCurrency(text: string, hasAmounts: boolean): string | null {
+  return detectCurrency(text) ?? (hasAmounts ? "INR" : null);
 }
 
 export const LABEL_WORDS =

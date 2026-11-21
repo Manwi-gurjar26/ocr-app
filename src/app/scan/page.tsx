@@ -169,8 +169,14 @@ export default function ScanPage() {
                           <div className="scan-line" />
                         </>
                       )}
+                      {/* frosted chip keeps the badge legible over any thumbnail */}
+                      {/* .glass sets position:relative, so positioning lives on the wrapper */}
                       <div className="absolute left-3 top-3">
-                        <StatusBadge status={doc.status} />
+                        <div className="glass glass-strong rounded-full p-0.5">
+                          <span className="relative z-[2] block">
+                            <StatusBadge status={doc.status} />
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 p-3 pt-4">

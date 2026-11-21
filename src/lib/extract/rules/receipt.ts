@@ -1,5 +1,5 @@
 import type { LineItem, ReceiptFields } from "../../types";
-import { amountAfter, detectCurrency, firstDate, headerName, lines, parseAmount } from "../parse";
+import { amountAfter, firstDate, headerName, lines, moneyCurrency, parseAmount } from "../parse";
 import { TOTAL_LABELS } from "./invoice";
 
 const PAYMENT: [RegExp, string][] = [
@@ -28,15 +28,18 @@ export function receiptItems(text: string): LineItem[] {
 
 export function extractReceipt(text: string): ReceiptFields {
   const time = text.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s*(?:am|pm)?)\b/i)?.[1] ?? null;
+  const subtotal = amountAfter(text, [/sub[\s-]?total/i]);
+  const total = amountAfter(text, TOTAL_LABELS);
+  const items = receiptItems(text);
   return {
     merchantName: headerName(text),
     date: firstDate(text),
     time: time ? time.trim().toUpperCase().replace(/\s+/g, " ") : null,
     paymentMethod: PAYMENT.find(([re]) => re.test(text))?.[1] ?? null,
-    subtotal: amountAfter(text, [/sub[\s-]?total/i]),
+    subtotal,
     tax: amountAfter(text, [/total\s*(tax|gst)/i, /\b(gst|vat|tax)\b/i]),
-    total: amountAfter(text, TOTAL_LABELS),
-    currency: detectCurrency(text),
-    items: receiptItems(text),
+    total,
+    currency: moneyCurrency(text, total != null || subtotal != null || items.length > 0),
+    items,
   };
 }
