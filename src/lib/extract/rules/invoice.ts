@@ -1,4 +1,5 @@
 import type { InvoiceFields, LineItem } from "../../types";
+import { findGstin } from "../repair";
 import { amountAfter, firstDate, headerName, labeled, lines, moneyCurrency, normalizeDate, parseAmount } from "../parse";
 
 export const GSTIN_RE = /\b\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]\b/;
@@ -57,7 +58,7 @@ export function extractInvoice(text: string): InvoiceFields {
   const dateStr = labeled(text, /\b(invoice|bill)\s*date\b|\bdated?\b/i, /(\S.+)/);
   const dueStr = labeled(text, /\bdue\s*date\b/i, /(\S.+)/);
   const customer = labeled(text, /\b(bill(ed)?\s*to|buyer|customer(\s*name)?|consignee|sold\s*to)\b/i, /([A-Za-z][^\n:]{1,60})/);
-  const gstin = text.match(GSTIN_RE)?.[0] ?? null;
+  const gstin = findGstin(text) ?? text.match(GSTIN_RE)?.[0] ?? null;
 
   const subtotal = amountAfter(text, SUBTOTAL_LABELS);
   const total = amountAfter(text, TOTAL_LABELS);

@@ -1,6 +1,9 @@
 import type { GstCertificateFields } from "../../types";
 import { DATE_RE, labeled, normalizeDate } from "../parse";
+import { findGstin } from "../repair";
 import { GSTIN_RE } from "./invoice";
+
+export { gstinChecksumValid } from "../repair";
 
 function dateAfter(text: string, label: RegExp): string | null {
   const v = labeled(text, label, DATE_RE);
@@ -10,6 +13,7 @@ function dateAfter(text: string, label: RegExp): string | null {
 /** Form GST REG-06 (Registration Certificate). */
 export function extractGstCertificate(text: string): GstCertificateFields {
   const gstin =
+    findGstin(text) ??
     labeled(text, /\b(registration\s*number|gstin|gstin\s*\/\s*uin)\b/i, new RegExp(`(${GSTIN_RE.source.replace(/\\b/g, "")})`)) ??
     text.match(GSTIN_RE)?.[0] ??
     null;
@@ -24,21 +28,6 @@ export function extractGstCertificate(text: string): GstCertificateFields {
     dateOfLiability: dateAfter(text, /\bdate\s*of\s*liability\b/i),
     dateOfIssue: dateAfter(text, /\bdate\s*of\s*issue(\s*of\s*certificate)?\b/i),
   };
-}
-
-const GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-/** GSTIN check digit (15th char): base-36 weighted mod checksum used by GSTN. */
-export function gstinChecksumValid(gstin: string): boolean {
-  const g = gstin.toUpperCase();
-  if (!/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(g)) return false;
-  let sum = 0;
-  for (let i = 0; i < 14; i++) {
-    const v = GSTIN_CHARS.indexOf(g[i]) * (i % 2 === 0 ? 1 : 2);
-    sum += Math.floor(v / 36) + (v % 36);
-  }
-  const check = GSTIN_CHARS[(36 - (sum % 36)) % 36];
-  return check === g[14];
 }
 
 /** The PAN embedded in a GSTIN (characters 3–12). */

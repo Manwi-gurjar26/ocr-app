@@ -8,9 +8,14 @@ export const AMOUNT_RE = /(?:₹|rs\.?|inr|\$|€|£)?\s*(\d{1,3}(?:,\d{2,3})+(?
 
 export function parseAmount(s: string | undefined | null): number | null {
   if (!s) return null;
-  const m = s.replace(/\s/g, "").match(/-?\d[\d,]*(?:\.\d+)?/);
+  // OCR sometimes reads a grouping comma as a dot ("1,52.000.00"): every dot but a final
+  // ".dd" decimal part is a thousands separator.
+  const m = s.replace(/\s/g, "").match(/-?\d[\d,.]*/);
   if (!m) return null;
-  const n = Number(m[0].replace(/,/g, ""));
+  let raw = m[0].replace(/[.,]+$/, "");
+  const dec = raw.match(/\.(\d{1,2})$/);
+  raw = dec ? raw.slice(0, -dec[0].length).replace(/[.,]/g, "") + dec[0] : raw.replace(/[.,]/g, "");
+  const n = Number(raw);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
 
@@ -73,7 +78,10 @@ export function firstDate(s: string): string | null {
 }
 
 export function lines(text: string): string[] {
-  return text.split("\n").map((l) => l.trim()).filter(Boolean);
+  return text
+    .split("\n")
+    .map((l) => l.trim().replace(/(\s+[:;.,\-|'"~_`]+)+$/, "")) // OCR speckle: "Priya Sharma : - ; ."
+    .filter(Boolean);
 }
 
 /**

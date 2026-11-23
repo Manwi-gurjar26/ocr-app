@@ -15,7 +15,8 @@
         "db:start": "powershell -ExecutionPolicy Bypass -File scripts/db-start.ps1",
         "e2e": "playwright test",
         "smoke": "tsx scripts/smoke.mts",
-        "samples": "tsx scripts/make-samples.mts"
+        "samples": "tsx scripts/make-samples.mts",
+        "bench:ocr": "tsx scripts/ocr-bench.mts"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^1.12.0",
