@@ -1,5 +1,6 @@
 import type { BankStatementFields, BankTransaction } from "../../types";
 import { amountAfter, DATE_RE, headerName, labeled, lines, normalizeDate, parseAmount } from "../parse";
+import { findIfsc, repairDigits } from "../repair";
 
 const BANK_RE =
   /\b(State\s+Bank\s+of\s+India|HDFC\s+Bank|ICICI\s+Bank|Axis\s+Bank|Kotak\s+Mahindra\s+Bank|Punjab\s+National\s+Bank|Bank\s+of\s+Baroda|Canara\s+Bank|Union\s+Bank\s+of\s+India|IndusInd\s+Bank|Yes\s+Bank|IDFC\s+FIRST\s+Bank|Bank\s+of\s+India|Indian\s+Bank|Central\s+Bank\s+of\s+India|Federal\s+Bank|[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)?\s+Bank)\b/;
@@ -38,6 +39,15 @@ export function transactions(text: string, opening: number | null): BankTransact
   return out;
 }
 
+const ACCOUNT_LABEL = /\b(account\s*(no\.?|number)|a\/c\s*(no\.?|number))\b/i;
+
+/** Account number after its label, repairing digit look-alikes (O→0, I→1, S→5 ...). */
+function accountNumber(text: string): string | null {
+  const raw = labeled(text, ACCOUNT_LABEL, /([X*\dOQDILSBZG|][X*\dOQDILSBZG|\s-]{5,24}[\dOQDILSBZG|])/i);
+  const fixed = raw ? repairDigits(raw) : null;
+  return fixed && /\d{4}$/.test(fixed) && fixed.length >= 8 ? fixed : null;
+}
+
 export function extractBankStatement(text: string): BankStatementFields {
   const opening = amountAfter(text, [/\bopening\s*balance\b/i, /\bbalance\s*b\/?f\b|brought\s*forward/i]);
   const closing = amountAfter(text, [/\bclosing\s*balance\b/i, /\bbalance\s*c\/?f\b|carried\s*forward/i]);
@@ -53,8 +63,8 @@ export function extractBankStatement(text: string): BankStatementFields {
     bankName: text.match(BANK_RE)?.[1] ?? headerName(text),
     accountHolder:
       labeled(text, /\b(account\s*holder(\s*name)?|customer\s*name|a\/c\s*name|name)\b/i, /([A-Za-z][A-Za-z .&'()-]{2,80})/)?.trim() ?? null,
-    accountNumber: labeled(text, /\b(account\s*(no\.?|number)|a\/c\s*(no\.?|number))\b/i, /([X*\d][X*\d\s-]{5,24}\d)/i)?.replace(/\s|-/g, "") ?? null,
-    ifsc: text.match(/\b([A-Z]{4}0[A-Z0-9]{6})\b/)?.[1] ?? null,
+    accountNumber: accountNumber(text),
+    ifsc: findIfsc(text) ?? text.match(/\b([A-Z]{4}0[A-Z0-9]{6})\b/)?.[1] ?? null,
     periodFrom: dates[0] ?? null,
     periodTo: dates[1] ?? null,
     openingBalance: opening,

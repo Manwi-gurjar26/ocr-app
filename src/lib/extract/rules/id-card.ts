@@ -1,5 +1,6 @@
 import type { IdCardFields, IdType } from "../../types";
 import { DATE_RE, labeled, lines, normalizeDate } from "../parse";
+import { repairDigits, repairPan, verhoeffValid } from "../repair";
 
 const PATTERNS = {
   aadhaar: /\b([2-9]\d{3}\s?\d{4}\s?\d{4})\b/,
@@ -57,6 +58,25 @@ function nameFor(text: string, idType: IdType): string | null {
   return ls.find(looksLikeName) ?? null;
 }
 
+/** A 10-char token that becomes a valid PAN after look-alike repair (e.g. "ABCDE12S4F"). */
+function repairedPan(text: string): string | null {
+  for (const tok of text.toUpperCase().split(/[^A-Z0-9|]+/)) {
+    if (tok.length !== 10) continue;
+    const p = repairPan(tok);
+    if (p) return p;
+  }
+  return null;
+}
+
+/** Twelve digit-like characters (spaces allowed) that pass the Aadhaar Verhoeff check after repair. */
+function repairedAadhaar(text: string): string | null {
+  for (const m of text.toUpperCase().matchAll(/(?<![0-9A-Z])[0-9OQDILSBZG|]{4} ?[0-9OQDILSBZG|]{4} ?[0-9OQDILSBZG|]{4}(?![0-9A-Z])/g)) {
+    const d = repairDigits(m[0]);
+    if (d && /^[2-9]\d{11}$/.test(d) && verhoeffValid(d)) return d;
+  }
+  return null;
+}
+
 export function extractIdCard(text: string): IdCardFields {
   const idType = detectIdType(text);
   const pattern = idType in PATTERNS ? PATTERNS[idType as keyof typeof PATTERNS] : undefined;
@@ -70,6 +90,8 @@ export function extractIdCard(text: string): IdCardFields {
       }
     }
   }
+  if (idType === "pan" && !idNumber) idNumber = repairedPan(text);
+  if (idType === "aadhaar" && (!idNumber || !verhoeffValid(idNumber.replace(/\s/g, "")))) idNumber = repairedAadhaar(text) ?? idNumber;
   if (idNumber && idType === "aadhaar") idNumber = idNumber.replace(/\s/g, "").replace(/(\d{4})(?=\d)/g, "$1 ");
 
   const fullName = nameFor(text, idType);
