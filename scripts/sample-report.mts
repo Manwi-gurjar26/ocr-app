@@ -6,7 +6,7 @@ import { documentReport, summaryReport } from "../src/lib/reports/index.ts";
 
 const out = process.argv[2] ?? ".";
 const base = {
-  id: "1", mimeType: "image/png", fileSize: 1, filePath: "x", status: "done" as const, ocrConfidence: 94,
+  id: "1", mimeType: "image/png", fileSize: 1, filePath: "x", status: "verified" as const, customerId: null, declaredType: null, declared: {}, ocrProvider: "tesseract" as const, validation: null, reviewedBy: null, reviewedAt: null, reviewNote: null, ocrConfidence: 94,
   extractionMethod: "rules" as const, error: null, createdAt: new Date(), updatedAt: new Date(),
 };
 const inv = {

@@ -8,6 +8,13 @@
       "when": 1795239651166,
       "tag": "0000_minor_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795404361789,
+      "tag": "0001_kilowattx_verification",
+      "breakpoints": true
     }
   ]
 }

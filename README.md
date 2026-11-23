@@ -1,6 +1,12 @@
-# DocScan — OCR for invoices, receipts & ID cards
+# DocScan — KiloWattX document OCR & verification
 
-Upload scanned documents → OCR → auto-classify → extract fields → store in PostgreSQL → export PDF reports.
+Upload electricity bills, GST certificates, bank statements and KYC documents (invoices and receipts are
+still supported). Each document goes through OCR, classification and field extraction, then business-rule
+validation, and ends up **verified** or in **manual review**. Results are stored in PostgreSQL with a full
+audit trail and can be exported as PDF reports.
+
+**Main module spec: [docs/kilowattx/ocr-module.md](docs/kilowattx/ocr-module.md)** covers the pipeline,
+status lifecycle, per-document rules, the Textract and Perfios adapters, the API and what is still open.
 Next.js 16 · TypeScript · PostgreSQL 18 · Drizzle · Tesseract.js · Claude vision (optional) · pdf-lib · Motion.
 
 ## Run it

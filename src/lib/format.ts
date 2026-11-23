@@ -1,11 +1,24 @@
 import { maskIdNumber } from "./extract/rules/id-card";
-import type { DocType, LineItem } from "./types";
+import type { BankTransaction, DocStatus, DocType, LineItem } from "./types";
 
 export const TYPE_LABEL: Record<DocType, string> = {
+  electricity_bill: "Electricity Bill",
+  gst_certificate: "GST Certificate",
+  bank_statement: "Bank Statement",
   invoice: "Invoice",
   receipt: "Receipt",
-  id_card: "ID Card",
+  id_card: "KYC Document",
   unknown: "Unknown",
+};
+
+export const STATUS_LABEL: Record<DocStatus, string> = {
+  uploaded: "Uploaded",
+  processing: "Processing",
+  extracted: "Extracted",
+  validation_pending: "Validating",
+  verified: "Verified",
+  manual_review: "Manual review",
+  failed: "Failed",
 };
 
 export const ID_TYPE_LABEL: Record<string, string> = {
@@ -17,7 +30,7 @@ export const ID_TYPE_LABEL: Record<string, string> = {
   other: "Other ID",
 };
 
-type FieldKind = "text" | "money" | "date" | "idType";
+type FieldKind = "text" | "money" | "date" | "idType" | "number" | "masked";
 export interface FieldDef {
   key: string;
   label: string;
@@ -25,6 +38,40 @@ export interface FieldDef {
 }
 
 export const FIELD_DEFS: Record<Exclude<DocType, "unknown">, FieldDef[]> = {
+  electricity_bill: [
+    { key: "discom", label: "DISCOM", kind: "text" },
+    { key: "consumerName", label: "Consumer Name", kind: "text" },
+    { key: "consumerNumber", label: "Consumer No.", kind: "text" },
+    { key: "address", label: "Address", kind: "text" },
+    { key: "billDate", label: "Bill Date", kind: "date" },
+    { key: "billingPeriod", label: "Billing Period", kind: "text" },
+    { key: "unitsConsumed", label: "Units (kWh)", kind: "number" },
+    { key: "sanctionedLoad", label: "Sanctioned Load", kind: "text" },
+    { key: "amountPayable", label: "Amount Payable", kind: "money" },
+    { key: "dueDate", label: "Due Date", kind: "date" },
+  ],
+  gst_certificate: [
+    { key: "gstin", label: "GSTIN", kind: "text" },
+    { key: "legalName", label: "Legal Name", kind: "text" },
+    { key: "tradeName", label: "Trade Name", kind: "text" },
+    { key: "address", label: "Principal Place", kind: "text" },
+    { key: "constitution", label: "Constitution", kind: "text" },
+    { key: "registrationType", label: "Registration Type", kind: "text" },
+    { key: "dateOfLiability", label: "Date of Liability", kind: "date" },
+    { key: "dateOfIssue", label: "Date of Issue", kind: "date" },
+  ],
+  bank_statement: [
+    { key: "bankName", label: "Bank", kind: "text" },
+    { key: "accountHolder", label: "Account Holder", kind: "text" },
+    { key: "accountNumber", label: "Account No.", kind: "masked" },
+    { key: "ifsc", label: "IFSC", kind: "text" },
+    { key: "periodFrom", label: "Period From", kind: "date" },
+    { key: "periodTo", label: "Period To", kind: "date" },
+    { key: "openingBalance", label: "Opening Balance", kind: "money" },
+    { key: "totalCredits", label: "Total Credits", kind: "money" },
+    { key: "totalDebits", label: "Total Debits", kind: "money" },
+    { key: "closingBalance", label: "Closing Balance", kind: "money" },
+  ],
   invoice: [
     { key: "invoiceNumber", label: "Invoice No.", kind: "text" },
     { key: "invoiceDate", label: "Invoice Date", kind: "date" },
@@ -89,11 +136,23 @@ export function displayFields(
     let value: string;
     if (def.kind === "money") value = formatMoney(v, fields.currency);
     else if (def.kind === "date") value = formatDate(v);
+    else if (def.kind === "number") value = typeof v === "number" ? v.toLocaleString("en-IN") : "—";
+    else if (def.kind === "masked") value = typeof v === "string" && v ? (opts.reveal ? v : maskAccount(v)) : "—";
     else if (def.kind === "idType") value = typeof v === "string" ? (ID_TYPE_LABEL[v] ?? v) : "—";
     else if (def.key === "idNumber" && !opts.reveal) value = maskIdNumber(fields.idType as string, v as string) ?? "—";
     else value = v === null || v === undefined || v === "" ? "—" : String(v);
     return { label: def.label, value };
   });
+}
+
+/** Show only the last 4 digits of an account number. */
+export function maskAccount(n: string): string {
+  const clean = n.replace(/\s/g, "");
+  return clean.length <= 4 ? clean : `${"X".repeat(Math.min(clean.length - 4, 8))}${clean.slice(-4)}`;
+}
+
+export function transactionsOf(type: DocType, fields: Record<string, unknown>): BankTransaction[] {
+  return type === "bank_statement" && Array.isArray(fields.transactions) ? (fields.transactions as BankTransaction[]) : [];
 }
 
 export function itemsOf(type: DocType, fields: Record<string, unknown>): LineItem[] {
@@ -110,7 +169,43 @@ export function headline(type: DocType, fields: Record<string, unknown>): { titl
       return { title: (fields.merchantName as string) ?? null, amount: (fields.total as number) ?? null };
     case "id_card":
       return { title: (fields.fullName as string) ?? null, amount: null };
+    case "electricity_bill":
+      return { title: (fields.consumerName as string) ?? null, amount: (fields.amountPayable as number) ?? null };
+    case "gst_certificate":
+      return { title: (fields.legalName as string) ?? (fields.gstin as string) ?? null, amount: null };
+    case "bank_statement":
+      return { title: (fields.accountHolder as string) ?? (fields.bankName as string) ?? null, amount: (fields.closingBalance as number) ?? null };
     default:
       return { title: null, amount: null };
   }
 }
+
+/** Customer-entered details collected at upload for each category, cross-checked by validation. */
+export const DECLARED_FIELDS: Partial<Record<DocType, { key: string; label: string; placeholder: string }[]>> = {
+  electricity_bill: [
+    { key: "consumerName", label: "Consumer name", placeholder: "ABC Industries" },
+    { key: "consumerNumber", label: "Consumer number", placeholder: "123456789" },
+  ],
+  gst_certificate: [
+    { key: "legalName", label: "Legal business name", placeholder: "ABC Industries Pvt Ltd" },
+    { key: "gstin", label: "GSTIN", placeholder: "27AABCA1234F1Z5" },
+    { key: "pan", label: "Business PAN", placeholder: "AABCA1234F" },
+  ],
+  bank_statement: [
+    { key: "accountHolder", label: "Account holder", placeholder: "ABC Industries" },
+    { key: "accountNumber", label: "Account number", placeholder: "Last 4 digits are enough" },
+  ],
+  id_card: [
+    { key: "fullName", label: "Full name", placeholder: "As on the document" },
+    { key: "idNumber", label: "Document number", placeholder: "PAN / Aadhaar / passport no." },
+    { key: "dateOfBirth", label: "Date of birth (yyyy-mm-dd)", placeholder: "1990-04-21" },
+  ],
+};
+
+export const UPLOAD_TYPES: { value: DocType | "auto"; label: string }[] = [
+  { value: "auto", label: "Auto-detect" },
+  { value: "electricity_bill", label: "Electricity bill" },
+  { value: "gst_certificate", label: "GST certificate" },
+  { value: "bank_statement", label: "Bank statement" },
+  { value: "id_card", label: "KYC document" },
+];

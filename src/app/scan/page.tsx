@@ -3,10 +3,11 @@
 import { ArrowRight, CircleNotch, CloudArrowUp, FilePdf, Files, WarningCircle } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type Doc } from "@/lib/client";
-import { formatMoney, headline, TYPE_LABEL } from "@/lib/format";
-import { AppIcon, Bezel, cn, PageHeader, Reveal, spring, StatusBadge, TypeIcon } from "@/components/ui";
+import { DECLARED_FIELDS, formatMoney, headline, STATUS_LABEL, TYPE_LABEL, UPLOAD_TYPES } from "@/lib/format";
+import { isBusy, type DocType } from "@/lib/types";
+import { AppIcon, Bezel, cn, PageHeader, Reveal, Segmented, spring, StatusBadge, TypeIcon } from "@/components/ui";
 
 const ACCEPT = "image/png,image/jpeg,image/webp,application/pdf";
 
@@ -21,6 +22,10 @@ export default function ScanPage() {
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
+  const [docType, setDocType] = useState<DocType | "auto">("auto");
+  const [customerId, setCustomerId] = useState("");
+  const [declared, setDeclared] = useState<Record<string, string>>({});
+  const declaredFields = useMemo(() => (docType === "auto" ? [] : (DECLARED_FIELDS[docType] ?? [])), [docType]);
 
   const upload = useCallback(async (files: File[]) => {
     if (!files.length) return;
@@ -28,6 +33,12 @@ export default function ScanPage() {
     setErrors([]);
     const form = new FormData();
     files.forEach((f) => form.append("files", f));
+    if (docType !== "auto") form.set("docType", docType);
+    if (customerId.trim()) form.set("customerId", customerId.trim());
+    const details = Object.fromEntries(
+      declaredFields.map((d) => [d.key, declared[d.key]?.trim()]).filter(([, v]) => v),
+    );
+    if (Object.keys(details).length) form.set("declared", JSON.stringify(details));
     try {
       const res = await api<{ items: Doc[]; errors: string[] }>("/api/documents", { method: "POST", body: form });
       const byName = new Map(files.map((f) => [f.name, f]));
@@ -44,10 +55,10 @@ export default function ScanPage() {
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [docType, customerId, declared, declaredFields]);
 
   // Poll documents that are still processing.
-  const pending = jobs.filter((j) => j.doc.status === "processing").map((j) => j.doc.id).join(",");
+  const pending = jobs.filter((j) => isBusy(j.doc.status)).map((j) => j.doc.id).join(",");
   useEffect(() => {
     if (!pending) return;
     const t = setInterval(async () => {
@@ -81,8 +92,41 @@ export default function ScanPage() {
       <PageHeader
         eyebrow="Scan"
         title="Drop it. We’ll read it."
-        subtitle="Invoices, receipts and ID cards — PNG, JPG, WEBP or PDF up to 10 MB each, 20 at a time. Each file is OCR’d, classified and its fields saved."
+        subtitle="Electricity bills, GST certificates, bank statements and KYC documents — PDF, JPG, PNG or WEBP up to 10 MB each. Each file is OCR’d, its fields extracted, checked against business rules and either verified or sent for review."
       />
+
+      <Reveal className="mb-6">
+        <div className="glass rounded-[1.75rem] p-5">
+          <div className="relative z-[2] space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <p className="text-sm font-medium">Document type</p>
+              <div className="-mx-1 overflow-x-auto px-1">
+                <Segmented id="upload-type" value={docType} onChange={setDocType} options={UPLOAD_TYPES} />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="space-y-1.5">
+                <span className="text-[11px] font-medium uppercase tracking-wider text-faint">Customer ID (optional)</span>
+                <input className="field" value={customerId} onChange={(e) => setCustomerId(e.target.value)} placeholder="CUST-1042" />
+              </label>
+              {declaredFields.map((d) => (
+                <label key={d.key} className="space-y-1.5">
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-faint">{d.label}</span>
+                  <input
+                    className="field"
+                    value={declared[d.key] ?? ""}
+                    onChange={(e) => setDeclared((x) => ({ ...x, [d.key]: e.target.value }))}
+                    placeholder={d.placeholder}
+                  />
+                </label>
+              ))}
+            </div>
+            {declaredFields.length > 0 && (
+              <p className="text-xs text-muted">Details you enter are cross-checked against what the document says. Mismatches go to manual review — they are never auto-rejected.</p>
+            )}
+          </div>
+        </div>
+      </Reveal>
 
       <Reveal>
         <Bezel>
@@ -110,8 +154,14 @@ export default function ScanPage() {
               <p className="text-2xl font-semibold tracking-tight">{drag ? "Release to scan" : "Drag files here"}</p>
               <p className="text-sm text-muted">or click to browse your device</p>
             </div>
+            {/* format badges */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {["PNG", "JPG", "WEBP", "PDF"].map((fmt) => (
+                <span key={fmt} className="rounded-full bg-ink/[0.07] px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-faint">{fmt}</span>
+              ))}
+            </div>
             <span className="inline-flex items-center gap-3 rounded-full bg-gradient-to-b from-btn-from to-btn-to py-1.5 pl-5 pr-1.5 text-sm font-medium text-btn-fg shadow-[0_10px_30px_-10px_var(--btn-glow),inset_0_1px_0_var(--btn-hi)]">
-              {uploading ? "Uploading…" : "Choose files"}
+              {uploading ? "Uploading\u2026" : "Choose files"}
               <span className="grid h-8 w-8 place-items-center rounded-full bg-btn-fg/10">
                 {uploading ? <CircleNotch size={16} className="animate-spin" /> : <Files size={16} weight="bold" />}
               </span>
@@ -146,11 +196,25 @@ export default function ScanPage() {
       </AnimatePresence>
 
       {jobs.length > 0 && (
-        <section className="mt-14 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mt-14">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">
+              This session
+              <span className="ml-2 rounded-full bg-ink/[0.07] px-2.5 py-0.5 text-sm font-medium text-faint">{jobs.length}</span>
+            </h2>
+            {jobs.some((j) => !isBusy(j.doc.status)) && (
+              <span className="text-xs text-muted">
+                {jobs.filter((j) => j.doc.status === "verified").length} verified ·{" "}
+                {jobs.filter((j) => j.doc.status === "manual_review").length} need review ·{" "}
+                {jobs.filter((j) => !isBusy(j.doc.status)).length} of {jobs.length} finished
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <AnimatePresence initial={false}>
             {jobs.map(({ doc, preview }) => {
               const h = headline(doc.docType, doc.fields);
-              const busy = doc.status === "processing";
+              const busy = isBusy(doc.status);
               return (
                 <motion.div key={doc.id} layout initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={spring}>
                   <Bezel coreClassName="p-3">
@@ -184,7 +248,13 @@ export default function ScanPage() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{busy ? doc.fileName : (h.title ?? doc.fileName)}</p>
                         <p className="truncate text-xs text-faint">
-                          {busy ? "Reading text…" : doc.status === "failed" ? doc.error : `${TYPE_LABEL[doc.docType]}${h.amount != null ? ` · ${formatMoney(h.amount, doc.fields.currency)}` : ""}`}
+                          {busy
+                            ? `${STATUS_LABEL[doc.status]}…`
+                            : doc.status === "failed"
+                              ? doc.error
+                              : doc.status === "manual_review"
+                                ? (doc.validation?.reasons[0] ?? "Needs review")
+                                : `${TYPE_LABEL[doc.docType]}${h.amount != null ? ` · ${formatMoney(h.amount, doc.fields.currency)}` : ""}`}
                         </p>
                       </div>
                       {!busy && (
@@ -198,6 +268,7 @@ export default function ScanPage() {
               );
             })}
           </AnimatePresence>
+          </div>
         </section>
       )}
     </>

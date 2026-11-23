@@ -6,9 +6,11 @@ import { useEffect } from "react";
 export function AmbientBackground() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-bg">
-      <div className="orb orb-a left-[-10vw] top-[-15vh] h-[60vh] w-[60vh]" />
-      <div className="orb orb-b right-[-12vw] top-[10vh] h-[55vh] w-[55vh]" />
-      <div className="orb orb-c bottom-[-20vh] left-[25vw] h-[60vh] w-[70vh]" />
+      <div className="orb orb-a left-[-10vw] top-[-15vh] h-[65vh] w-[65vh]" />
+      <div className="orb orb-b right-[-12vw] top-[10vh] h-[60vh] w-[60vh]" />
+      <div className="orb orb-c bottom-[-20vh] left-[25vw] h-[65vh] w-[75vh]" />
+      {/* subtle accent orb for extra depth */}
+      <div className="orb orb-a right-[5vw] bottom-[10vh] h-[35vh] w-[35vh] opacity-40" style={{ animationDelay: "-14s", animationDuration: "44s" }} />
       <div className="vignette absolute inset-0" />
       <div className="grain" />
     </div>

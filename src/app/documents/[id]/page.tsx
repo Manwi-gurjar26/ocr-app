@@ -3,6 +3,8 @@
 import {
   ArrowLeft,
   ArrowsClockwise,
+  CheckCircle,
+  CloudArrowUp,
   DownloadSimple,
   Eye,
   EyeSlash,
@@ -10,35 +12,135 @@ import {
   FloppyDisk,
   Trash,
   WarningCircle,
+  XCircle,
 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { api, useFetch, type Doc } from "@/lib/client";
+import { api, relativeTime, useFetch, type Doc, type DocEvent } from "@/lib/client";
 import { maskIdNumber } from "@/lib/extract/rules/id-card";
-import { FIELD_DEFS, formatMoney, ID_TYPE_LABEL, itemsOf, TYPE_LABEL } from "@/lib/format";
-import type { DocType } from "@/lib/types";
-import { Bezel, cn, Eyebrow, Pill, Reveal, Segmented, spring, StatusBadge, TypeIcon } from "@/components/ui";
+import { FIELD_DEFS, formatMoney, ID_TYPE_LABEL, itemsOf, maskAccount, STATUS_LABEL, transactionsOf, TYPE_LABEL } from "@/lib/format";
+import { DOC_TYPES, isBusy, type DocType, type ReviewAction, type ValidationCheck } from "@/lib/types";
+import { Bezel, cn, ConfidenceBar, Eyebrow, Pill, Reveal, Segmented, spring, StatusBadge, TypeIcon } from "@/components/ui";
 
-const TYPE_OPTIONS: { value: DocType; label: string }[] = [
-  { value: "invoice", label: "Invoice" },
-  { value: "receipt", label: "Receipt" },
-  { value: "id_card", label: "ID Card" },
-  { value: "unknown", label: "Other" },
-];
+const METHOD_LABEL: Record<string, string> = { ai: "AI vision", rules: "OCR rules", textract: "Amazon Textract", perfios: "Perfios" };
+const PROVIDER_LABEL: Record<string, string> = { tesseract: "Local OCR", textract: "Amazon Textract", perfios: "Perfios" };
+
+const CHECK_STYLE: Record<ValidationCheck["status"], { I: typeof CheckCircle; cls: string }> = {
+  pass: { I: CheckCircle, cls: "text-ok" },
+  warn: { I: WarningCircle, cls: "text-warn" },
+  fail: { I: XCircle, cls: "text-danger" },
+};
+
+function ValidationPanel({ checks }: { checks: ValidationCheck[] }) {
+  if (!checks.length) return null;
+  const order = { fail: 0, warn: 1, pass: 2 } as const;
+  return (
+    <ul className="space-y-2">
+      {[...checks]
+        .sort((a, b) => order[a.status] - order[b.status])
+        .map((c) => {
+          const st = CHECK_STYLE[c.status];
+          return (
+            <li key={c.id} className="flex items-start gap-3 rounded-2xl bg-well px-4 py-3">
+              <st.I size={18} weight="fill" className={cn("mt-0.5 shrink-0", st.cls)} />
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{c.label}</p>
+                <p className="text-xs text-muted">{c.message}</p>
+              </div>
+            </li>
+          );
+        })}
+    </ul>
+  );
+}
+
+function ReviewPanel({ doc, onDone }: { doc: Doc; onDone: (d: Doc, msg: string) => void }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<ReviewAction | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const act = async (action: ReviewAction) => {
+    setBusy(action);
+    setErr(null);
+    try {
+      const d = await api<Doc>(`/api/documents/${doc.id}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, note: note.trim() || undefined }),
+      });
+      setNote("");
+      onDone(d, action === "approve" ? "Approved \u2014 marked verified" : action === "reject" ? "Rejected" : "Re-upload requested");
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="space-y-3">
+      {doc.reviewedBy && (
+        <p className="text-xs text-muted">
+          Last reviewed by <span className="font-medium text-fg">{doc.reviewedBy}</span>
+          {doc.reviewedAt ? ` \u00b7 ${relativeTime(doc.reviewedAt)}` : ""}
+          {doc.reviewNote ? ` \u2014 "${doc.reviewNote}"` : ""}
+        </p>
+      )}
+      <textarea
+        className="field min-h-[72px] resize-y"
+        placeholder="Review note (required to reject or request a re-upload)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      {err && <p className="text-xs text-danger">{err}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Pill onClick={() => act("approve")} icon={CheckCircle} busy={busy === "approve"} disabled={!!busy || doc.status === "verified"}>
+          Approve
+        </Pill>
+        <Pill onClick={() => act("request_reupload")} variant="glass" icon={CloudArrowUp} busy={busy === "request_reupload"} disabled={!!busy}>
+          Request re-upload
+        </Pill>
+        <Pill onClick={() => act("reject")} variant="danger" icon={XCircle} busy={busy === "reject"} disabled={!!busy}>
+          Reject
+        </Pill>
+      </div>
+    </div>
+  );
+}
+
+function Timeline({ id, version }: { id: string; version: string }) {
+  const { data } = useFetch<{ events: DocEvent[] }>(`/api/documents/${id}/history?v=${encodeURIComponent(version)}`);
+  if (!data?.events.length) return <p className="text-sm text-muted">No history yet.</p>;
+  return (
+    <ol className="space-y-3 border-l border-ink/10 pl-4">
+      {data.events.map((e) => (
+        <li key={e.id} className="relative">
+          <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-ink/30" />
+          <p className="text-sm">
+            <span className="font-medium">{STATUS_LABEL[e.toStatus] ?? e.toStatus}</span>
+            {e.action !== "system" && <span className="text-muted">{` \u00b7 ${e.action.replace(/_/g, " ")} by ${e.actor}`}</span>}
+          </p>
+          <p className="text-xs text-faint">
+            {new Date(e.createdAt).toLocaleString("en-IN")}
+            {e.note ? ` \u2014 ${e.note}` : ""}
+          </p>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function DocumentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { data: doc, error, setData, refresh } = useFetch<Doc>(`/api/documents/${id}`, (d) => d.status === "processing");
+  const { data: doc, error, setData, refresh } = useFetch<Doc>(`/api/documents/${id}`, (d) => isBusy(d.status));
 
   const [type, setType] = useState<DocType>("unknown");
   const [fields, setFields] = useState<Record<string, unknown>>({});
   const [reveal, setReveal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [tab, setTab] = useState<"fields" | "text">("fields");
+  const [tab, setTab] = useState<"fields" | "checks" | "history" | "text">("fields");
 
   // Reset the editable copy whenever the server version changes (adjust-state-during-render pattern).
   const version = doc ? `${doc.id}:${doc.updatedAt}` : "";
@@ -65,7 +167,7 @@ export default function DocumentPage() {
         body: JSON.stringify({ docType: type, fields }),
       });
       setData(updated);
-      flash("Saved to database");
+      flash(updated.status === "verified" ? "Saved \u2014 all checks pass" : "Saved \u2014 re-validated");
     } catch (e) {
       flash((e as Error).message);
     } finally {
@@ -95,6 +197,8 @@ export default function DocumentPage() {
     );
 
   const items = itemsOf(type, fields);
+  const txns = transactionsOf(type, fields);
+  const busyNow = isBusy(doc.status);
   const defs = type === "unknown" ? [] : FIELD_DEFS[type];
   const fileUrl = `/api/documents/${id}/file`;
 
@@ -117,22 +221,37 @@ export default function DocumentPage() {
 
       <Reveal className="mb-10 flex items-center gap-5">
         <TypeIcon type={type} size={68} />
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Eyebrow>{TYPE_LABEL[type]}</Eyebrow>
             <StatusBadge status={doc.status} />
           </div>
           <h1 className="truncate text-3xl font-semibold tracking-[-0.035em] md:text-5xl">{doc.fileName}</h1>
           <p className="text-sm text-faint">
-            {doc.extractionMethod === "ai" ? "AI vision" : "OCR rules"} · confidence {doc.ocrConfidence != null ? `${Math.round(doc.ocrConfidence)}%` : "—"} ·{" "}
-            {new Date(doc.createdAt).toLocaleString("en-IN")}
+            {doc.ocrProvider ? `${PROVIDER_LABEL[doc.ocrProvider] ?? doc.ocrProvider} \u00b7 ` : ""}
+            {METHOD_LABEL[doc.extractionMethod ?? "rules"] ?? "OCR rules"} · {new Date(doc.createdAt).toLocaleString("en-IN")}
+            {doc.customerId ? ` \u00b7 Customer ${doc.customerId}` : ""}
+            {doc.declaredType && doc.declaredType !== doc.docType ? ` \u00b7 uploaded as ${TYPE_LABEL[doc.declaredType]}` : ""}
           </p>
+          <ConfidenceBar value={doc.ocrConfidence} className="max-w-xs pt-1" />
         </div>
       </Reveal>
 
       {doc.status === "failed" && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-danger">
           <WarningCircle size={18} /> {doc.error}
+        </div>
+      )}
+      {doc.status === "manual_review" && doc.validation && (
+        <div className="mb-6 rounded-2xl bg-amber-400/10 px-4 py-3 text-sm text-warn">
+          <p className="flex items-center gap-2 font-medium">
+            <Eye size={18} /> Needs manual review
+          </p>
+          <ul className="mt-1 list-disc pl-8 text-xs">
+            {doc.validation.reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -147,7 +266,7 @@ export default function DocumentPage() {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={fileUrl} alt={doc.fileName} className="max-h-[70vh] w-full object-contain" />
               )}
-              {doc.status === "processing" && (
+              {busyNow && (
                 <>
                   <div className="absolute inset-0 bg-bg/40" />
                   <div className="scan-line" />
@@ -167,18 +286,44 @@ export default function DocumentPage() {
                 onChange={setTab}
                 options={[
                   { value: "fields", label: "Extracted data" },
+                  { value: "checks", label: doc.validation ? `Checks (${doc.validation.checks.filter((c) => c.status === "fail").length} issues)` : "Checks" },
+                  { value: "history", label: "History" },
                   { value: "text", label: "OCR text" },
                 ]}
               />
-              {type === "id_card" && tab === "fields" && (
+              {(type === "id_card" || type === "bank_statement") && tab === "fields" && (
                 <button onClick={() => setReveal((r) => !r)} className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg">
-                  {reveal ? <EyeSlash size={14} /> : <Eye size={14} />} {reveal ? "Hide ID number" : "Reveal ID number"}
+                  {reveal ? <EyeSlash size={14} /> : <Eye size={14} />} {reveal ? "Hide number" : "Reveal number"}
                 </button>
               )}
             </div>
 
             <AnimatePresence mode="wait">
-              {tab === "text" ? (
+              {tab === "checks" ? (
+                <motion.div key="checks" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
+                  {doc.validation ? (
+                    <ValidationPanel checks={doc.validation.checks} />
+                  ) : (
+                    <p className="text-sm text-muted">{busyNow ? "Validation runs once extraction finishes\u2026" : "Not validated yet \u2014 re-scan to run the checks."}</p>
+                  )}
+                  {!busyNow && (
+                    <div>
+                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Reviewer decision</p>
+                      <ReviewPanel
+                        doc={doc}
+                        onDone={(d, m) => {
+                          setData(d);
+                          flash(m);
+                        }}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+              ) : tab === "history" ? (
+                <motion.div key="history" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+                  <Timeline id={doc.id} version={version} />
+                </motion.div>
+              ) : tab === "text" ? (
                 <motion.pre
                   key="text"
                   initial={{ opacity: 0, y: 10 }}
@@ -192,7 +337,13 @@ export default function DocumentPage() {
                 <motion.div key="fields" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
                   <div>
                     <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Document type</p>
-                    <Segmented id="doc-type" value={type} onChange={setType} options={TYPE_OPTIONS} />
+                    <select className="field max-w-xs" value={type} onChange={(e) => setType(e.target.value as DocType)}>
+                      {DOC_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {TYPE_LABEL[t]}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {defs.length === 0 ? (
@@ -225,6 +376,18 @@ export default function DocumentPage() {
                                   set(n === "" ? null : Number(n));
                                 }}
                               />
+                            ) : def.kind === "number" ? (
+                              <input
+                                className="field font-mono"
+                                inputMode="decimal"
+                                value={v == null ? "" : String(v)}
+                                onChange={(e) => {
+                                  const n = e.target.value.replace(/[^\d.]/g, "");
+                                  set(n === "" ? null : Number(n));
+                                }}
+                              />
+                            ) : def.kind === "masked" && !reveal ? (
+                              <input className="field font-mono" disabled value={typeof v === "string" ? maskAccount(v) : ""} />
                             ) : def.kind === "date" ? (
                               <input type="date" className="field" value={(v as string) ?? ""} onChange={(e) => set(e.target.value || null)} />
                             ) : masked ? (
@@ -235,6 +398,37 @@ export default function DocumentPage() {
                           </label>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {txns.length > 0 && (
+                    <div>
+                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Transactions ({txns.length})</p>
+                      <div className="max-h-80 overflow-auto rounded-2xl bg-well">
+                        <table className="w-full text-sm">
+                          <thead className="sticky top-0 bg-well text-left text-[11px] uppercase tracking-wider text-faint">
+                            <tr>
+                              <th className="p-3 font-medium">Date</th>
+                              <th className="p-3 font-medium">Description</th>
+                              <th className="p-3 text-right font-medium">Debit</th>
+                              <th className="p-3 text-right font-medium">Credit</th>
+                              <th className="p-3 text-right font-medium">Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {txns.map((t, i) => (
+                              <tr key={i} className="border-t border-ink/10">
+                                <td className="whitespace-nowrap p-3 font-mono text-xs">{t.date ?? ""}</td>
+                                <td className="p-3">{t.description}</td>
+                                <td className="p-3 text-right font-mono">{t.debit != null ? formatMoney(t.debit) : ""}</td>
+                                <td className="p-3 text-right font-mono">{t.credit != null ? formatMoney(t.credit) : ""}</td>
+                                <td className="p-3 text-right font-mono">{t.balance != null ? formatMoney(t.balance) : ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="mt-2 text-xs text-faint">Basic OCR read. Credit assessment uses Perfios Bank Statement Analyser.</p>
                     </div>
                   )}
 
@@ -271,7 +465,7 @@ export default function DocumentPage() {
               <Pill onClick={save} icon={FloppyDisk} busy={saving} disabled={!dirty}>
                 Save changes
               </Pill>
-              <Pill onClick={reprocess} variant="glass" icon={ArrowsClockwise} disabled={doc.status === "processing"}>
+              <Pill onClick={reprocess} variant="glass" icon={ArrowsClockwise} disabled={busyNow}>
                 Re-scan
               </Pill>
               <Pill onClick={remove} variant="danger" icon={Trash} className="ml-auto">
