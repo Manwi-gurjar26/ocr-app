@@ -34,16 +34,16 @@ export default function ReportsPage() {
     <>
       <PageHeader
         eyebrow="Reports"
-        title="PDF reports, instantly."
-        subtitle="Choose a document type and date range to generate a summary report. Single-document reports are on each document’s page."
+        title="Summary reports"
+        subtitle="Pick a document type and date range to export a PDF summary. Single-document reports are on each document’s page."
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         <Reveal className="lg:col-span-7">
-          <Bezel coreClassName="p-6 md:p-8">
+          <Bezel coreClassName="p-5">
             <div className="space-y-8">
               <div>
-                <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Document type</p>
+                <p className="mb-3 text-[13px] font-medium text-muted">Document type</p>
                 <Segmented
                   id="report-type"
                   value={type}
@@ -61,7 +61,7 @@ export default function ReportsPage() {
               </div>
 
               <div>
-                <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Uploaded between</p>
+                <p className="mb-3 text-[13px] font-medium text-muted">Uploaded between</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="space-y-1.5">
                     <span className="flex items-center gap-1.5 text-xs text-muted">
@@ -84,7 +84,7 @@ export default function ReportsPage() {
                         setFrom(p.from());
                         setTo("");
                       }}
-                      className="rounded-full bg-ink/[0.06] px-3 py-1.5 text-xs text-muted transition-colors duration-500 ease-spring hover:bg-ink/10 hover:text-fg"
+                      className="rounded-md border border-hair bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-hair-strong hover:text-fg"
                     >
                       {p.label}
                     </button>
@@ -105,28 +105,28 @@ export default function ReportsPage() {
         </Reveal>
 
         <Reveal delay={0.08} className="lg:col-span-5">
-          <Bezel className="h-full" coreClassName="flex h-full flex-col justify-between gap-8 p-6 md:p-8">
+          <Bezel className="h-full" coreClassName="flex h-full flex-col gap-6 p-5">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Report will include</p>
-              <motion.p key={data?.total} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-3 text-6xl font-semibold tracking-[-0.05em]">
+              <p className="text-[13px] font-medium text-muted">Report will include</p>
+              <motion.p key={data?.total} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-1.5 text-[28px] font-semibold leading-none tracking-tight tabular">
                 {data ? data.total : "—"}
               </motion.p>
               <p className="text-sm text-muted">documents</p>
             </div>
             {(type === "invoice" || type === "receipt" || type === "electricity_bill") && (
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Combined amount</p>
-                <p className="mt-2 font-mono text-2xl">{formatMoney(amount)}</p>
+                <p className="text-[13px] font-medium text-muted">Combined amount</p>
+                <p className="mt-1.5 text-xl font-semibold tabular">{formatMoney(amount)}</p>
               </div>
             )}
             <div>
-              <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Quick reports</p>
-              <div className="grid grid-cols-5 gap-2">
-                <AppButton icon={Files} tone="gray" label="All" href="/api/reports/summary" size={50} />
-                <AppButton icon={Lightning} tone="orange" label="Bills" href="/api/reports/summary?type=electricity_bill" size={50} />
-                <AppButton icon={Certificate} tone="indigo" label="GST" href="/api/reports/summary?type=gst_certificate" size={50} />
-                <AppButton icon={Bank} tone="teal" label="Bank" href="/api/reports/summary?type=bank_statement" size={50} />
-                <AppButton icon={IdentificationCard} tone="green" label="KYC" href="/api/reports/summary?type=id_card" size={50} />
+              <p className="mb-4 text-[13px] font-medium text-muted">Quick reports</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <AppButton icon={Files} tone="gray" label="All documents" href="/api/reports/summary" />
+                <AppButton icon={Lightning} tone="orange" label="Electricity bills" href="/api/reports/summary?type=electricity_bill" />
+                <AppButton icon={Certificate} tone="indigo" label="GST certificates" href="/api/reports/summary?type=gst_certificate" />
+                <AppButton icon={Bank} tone="teal" label="Bank statements" href="/api/reports/summary?type=bank_statement" />
+                <AppButton icon={IdentificationCard} tone="green" label="KYC documents" href="/api/reports/summary?type=id_card" />
               </div>
             </div>
           </Bezel>

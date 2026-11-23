@@ -13,7 +13,7 @@ test("scan → review → edit → report → delete", async ({ page }, info) =>
   page.on("pageerror", (e) => errors.push(e.message));
 
   await page.goto("/");
-  await expect(page.getByText("Data out.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Document verification" })).toBeVisible();
   await page.waitForTimeout(1200); // let entry animations settle
   await shot(page, "home", p);
 
@@ -40,19 +40,19 @@ test("scan → review → edit → report → delete", async ({ page }, info) =>
   expect(res.headers()["content-type"]).toBe("application/pdf");
 
   await page.goto("/documents");
-  await page.getByPlaceholder("Search names, numbers, text…").fill(customer);
+  await page.getByPlaceholder("Search names, numbers, text").fill(customer);
   await expect(page.getByText("Sharma Electronics Pvt Ltd").first()).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, "library", p);
 
   await page.goto("/reports");
-  await expect(page.getByText("PDF reports, instantly.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Summary reports" })).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, "reports", p);
 
   // clean up everything this test created
   await page.goto("/documents");
-  await page.getByPlaceholder("Search names, numbers, text…").fill(customer);
+  await page.getByPlaceholder("Search names, numbers, text").fill(customer);
   await page.getByText("Sharma Electronics Pvt Ltd").first().click();
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Delete" }).click();

@@ -25,7 +25,7 @@ test("electricity bill is verified; wrong document goes to review and is resolve
 
   // 1. Upload a bill as "Electricity bill" with the customer's details.
   await page.goto("/scan");
-  await page.getByRole("tab", { name: "Electricity bill" }).click();
+  await page.getByRole("radio", { name: "Electricity bill" }).click();
   await page.getByPlaceholder("CUST-1042").fill(`E2E-${p}`);
   await page.getByPlaceholder("ABC Industries", { exact: true }).fill("ABC Industries Pvt Ltd");
   await page.getByPlaceholder("123456789").fill(consumer);
@@ -47,7 +47,7 @@ test("electricity bill is verified; wrong document goes to review and is resolve
 
   // 2. Upload a GST certificate but claim it is an electricity bill → manual review.
   await page.goto("/scan");
-  await page.getByRole("tab", { name: "Electricity bill" }).click();
+  await page.getByRole("radio", { name: "Electricity bill" }).click();
   await page.locator('input[type="file"]').setInputFiles({ name: `wrong-${p}.pdf`, mimeType: "application/pdf", buffer: await textPdf(GST_CERTIFICATE) });
   await expect(page.getByText("Needs review").first()).toBeVisible({ timeout: 90_000 });
   await page.getByRole("link", { name: "Open" }).first().click();
