@@ -19,6 +19,7 @@
   --danger: #fda4af;
   --ok: #6ee7b7;
   --info: #7dd3fc;
+  --warn: #fcd34d;
 
   --btn-from: #ffffff;
   --btn-to: #dfe6ff;
@@ -70,6 +71,7 @@
   --danger: #be123c;
   --ok: #047857;
   --info: #0369a1;
+  --warn: #b45309;
 
   --btn-from: #2c3352;
   --btn-to: #0b0d14;
@@ -120,6 +122,7 @@
   --color-danger: var(--danger);
   --color-ok: var(--ok);
   --color-info: var(--info);
+  --color-warn: var(--warn);
   --color-btn-from: var(--btn-from);
   --color-btn-to: var(--btn-to);
   --color-btn-fg: var(--btn-fg);
@@ -370,6 +373,76 @@ body {
 .field:disabled { opacity: 0.6; }
 .field option { background: var(--bg); color: var(--fg); }
 input[type="date"].field::-webkit-calendar-picker-indicator { filter: invert(var(--picker-invert)); opacity: 0.6; }
+
+/* ---------- Card glow on hover ---------- */
+
+.card-glow {
+  transition: box-shadow 500ms var(--spring);
+}
+.card-glow:hover {
+  box-shadow: 0 0 0 1.5px var(--bezel-ring), 0 20px 60px -20px color-mix(in oklab, var(--ink) 20%, transparent);
+}
+
+/* ---------- Confidence bar ---------- */
+
+.conf-bar-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.conf-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 1s var(--spring);
+}
+
+/* ---------- Processing pulse ring ---------- */
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0.6); }
+  50%       { box-shadow: 0 0 0 5px rgba(125, 211, 252, 0); }
+}
+.pulse-ring {
+  animation: pulse-ring 1.6s var(--spring) infinite;
+}
+
+/* ---------- Stat number count-up shimmer ---------- */
+
+@keyframes count-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    filter: blur(0); }
+}
+.count-in {
+  animation: count-in 0.55s var(--spring) both;
+}
+
+/* ---------- Tooltip ---------- */
+
+.tooltip {
+  position: relative;
+  display: inline-flex;
+}
+.tooltip-label {
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: color-mix(in oklab, var(--fg) 92%, transparent);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 150ms;
+  z-index: 50;
+}
+.tooltip:hover .tooltip-label {
+  opacity: 1;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }

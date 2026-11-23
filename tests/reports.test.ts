@@ -9,7 +9,8 @@ import { safe } from "@/lib/reports/pdf-kit";
 function row(p: Partial<DocumentRow>): DocumentRow {
   return {
     id: "00000000-0000-0000-0000-000000000001", fileName: "f.png", mimeType: "image/png", fileSize: 1, filePath: "f.png",
-    docType: "unknown", status: "done", rawText: null, ocrConfidence: 90, extractionMethod: "rules", fields: {}, error: null,
+    docType: "unknown", status: "verified", customerId: null, declaredType: null, declared: {}, ocrProvider: "tesseract", validation: null,
+    reviewedBy: null, reviewedAt: null, reviewNote: null, rawText: null, ocrConfidence: 90, extractionMethod: "rules", fields: {}, error: null,
     createdAt: new Date("2024-03-15T10:00:00Z"), updatedAt: new Date(), ...p,
   };
 }

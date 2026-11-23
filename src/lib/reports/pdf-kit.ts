@@ -19,7 +19,9 @@ export function safe(s: string): string {
     .replace(/₹/g, "Rs.")
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, "-")
+    .replace(/[–—−]/g, "-")
+    .replace(/≤/g, "<=")
+    .replace(/≥/g, ">=")
     .replace(/…/g, "...")
     .replace(/[\t]/g, " ")
     .replace(/[^\x20-\x7E\xA0-\xFF\n]/g, "");

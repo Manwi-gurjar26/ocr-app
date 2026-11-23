@@ -7,7 +7,7 @@ export function testDb() {
   const { db, pool } = createDb(url);
   return {
     db,
-    reset: () => db.execute(sql`truncate table documents`),
+    reset: () => db.execute(sql`truncate table documents cascade`),
     close: () => pool.end(),
   };
 }

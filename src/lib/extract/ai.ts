@@ -10,7 +10,26 @@ const num = z.number().nullable();
 const item = z.object({ description: z.string(), quantity: num, unitPrice: num, amount: num });
 
 export const ExtractionSchema = z.object({
-  docType: z.enum(["invoice", "receipt", "id_card", "unknown"]),
+  docType: z.enum(["electricity_bill", "gst_certificate", "bank_statement", "id_card", "invoice", "receipt", "unknown"]),
+  electricityBill: z
+    .object({
+      discom: str, consumerName: str, consumerNumber: str, address: str, billDate: str, billingPeriod: str,
+      unitsConsumed: num, sanctionedLoad: str, amountPayable: num, dueDate: str, currency: str,
+    })
+    .nullable(),
+  gstCertificate: z
+    .object({
+      gstin: str, legalName: str, tradeName: str, address: str, constitution: str, registrationType: str,
+      dateOfLiability: str, dateOfIssue: str,
+    })
+    .nullable(),
+  bankStatement: z
+    .object({
+      bankName: str, accountHolder: str, accountNumber: str, ifsc: str, periodFrom: str, periodTo: str,
+      openingBalance: num, closingBalance: num, totalCredits: num, totalDebits: num, currency: str,
+      transactions: z.array(z.object({ date: str, description: z.string(), debit: num, credit: num, balance: num })),
+    })
+    .nullable(),
   invoice: z
     .object({
       invoiceNumber: str, invoiceDate: str, dueDate: str, vendorName: str, vendorGstin: str, customerName: str,
@@ -33,12 +52,15 @@ export const ExtractionSchema = z.object({
 export type Extraction = z.infer<typeof ExtractionSchema>;
 
 const SYSTEM = `You extract structured data from scanned business and identity documents (mostly Indian).
-Classify the document as invoice, receipt, id_card, or unknown, then fill ONLY the matching object; set the other two to null.
+Classify the document as electricity_bill, gst_certificate (Form GST REG-06), bank_statement, id_card (KYC: Aadhaar, PAN, passport, DL, voter ID), invoice, receipt, or unknown.
+Fill ONLY the object matching the type; set every other object to null.
 Rules:
 - Dates as ISO yyyy-mm-dd. Numeric dates in the document are day-first (dd/mm/yyyy).
 - Amounts as plain numbers (no currency symbols or commas). Currency as ISO code (INR, USD...).
 - Use null for anything not present. Never guess or invent values.
 - Aadhaar numbers formatted as "1234 5678 9012".
+- billingPeriod as "Month yyyy" or "yyyy-mm-dd to yyyy-mm-dd". unitsConsumed in kWh.
+- For bank statements include at most the first 100 transactions.
 - An OCR transcript is provided as a hint; trust the image when they disagree.`;
 
 export function aiAvailable(): boolean {
@@ -52,9 +74,19 @@ export interface AiResult {
   fields: DocumentFields;
 }
 
-export function toResult(e: Extraction): AiResult {
-  const fields =
-    e.docType === "invoice" ? e.invoice : e.docType === "receipt" ? e.receipt : e.docType === "id_card" ? e.idCard : null;
+const KEY: Record<DocType, keyof Extraction | null> = {
+  electricity_bill: "electricityBill",
+  gst_certificate: "gstCertificate",
+  bank_statement: "bankStatement",
+  id_card: "idCard",
+  invoice: "invoice",
+  receipt: "receipt",
+  unknown: null,
+};
+
+export function toResult(e: Partial<Extraction> & Pick<Extraction, "docType">): AiResult {
+  const key = KEY[e.docType];
+  const fields = key ? (e[key] as DocumentFields | null | undefined) : null;
   return { docType: e.docType, fields: fields ?? {} };
 }
 

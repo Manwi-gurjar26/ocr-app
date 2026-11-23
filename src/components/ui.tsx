@@ -2,9 +2,13 @@
 
 import {
   ArrowUpRight,
-  CheckCircle,
+  Bank,
+  Certificate,
   CircleNotch,
+  Eye,
   IdentificationCard,
+  Lightning,
+  SealCheck,
   Invoice,
   Question,
   Receipt,
@@ -228,8 +232,11 @@ export function Eyebrow({ children }: { children: ReactNode }) {
 }
 
 export const TYPE_VISUAL: Record<DocType, { icon: Icon; tone: Tone }> = {
+  electricity_bill: { icon: Lightning, tone: "orange" },
+  gst_certificate: { icon: Certificate, tone: "indigo" },
+  bank_statement: { icon: Bank, tone: "teal" },
   invoice: { icon: Invoice, tone: "blue" },
-  receipt: { icon: Receipt, tone: "orange" },
+  receipt: { icon: Receipt, tone: "pink" },
   id_card: { icon: IdentificationCard, tone: "green" },
   unknown: { icon: Question, tone: "gray" },
 };
@@ -239,16 +246,59 @@ export function TypeIcon({ type, size = 44 }: { type: DocType; size?: number }) 
   return <AppIcon icon={v.icon} tone={v.tone} size={size} />;
 }
 
+const STATUS_VISUAL: Record<DocStatus, { I: Icon; cls: string; label: string; busy: boolean }> = {
+  uploaded: { I: CircleNotch, cls: "text-info bg-sky-400/10", label: "Uploaded", busy: true },
+  processing: { I: CircleNotch, cls: "text-info bg-sky-400/10", label: "Reading", busy: true },
+  extracted: { I: CircleNotch, cls: "text-info bg-sky-400/10", label: "Extracted", busy: true },
+  validation_pending: { I: CircleNotch, cls: "text-info bg-sky-400/10", label: "Validating", busy: true },
+  verified: { I: SealCheck, cls: "text-ok bg-emerald-400/10", label: "Verified", busy: false },
+  manual_review: { I: Eye, cls: "text-warn bg-amber-400/10", label: "Needs review", busy: false },
+  failed: { I: WarningCircle, cls: "text-danger bg-rose-400/10", label: "Failed", busy: false },
+};
+
 export function StatusBadge({ status }: { status: DocStatus }) {
-  const map = {
-    processing: { I: CircleNotch, cls: "text-info bg-sky-400/10", label: "Scanning", spin: true },
-    done: { I: CheckCircle, cls: "text-ok bg-emerald-400/10", label: "Done", spin: false },
-    failed: { I: WarningCircle, cls: "text-danger bg-rose-400/10", label: "Failed", spin: false },
-  }[status];
+  const map = STATUS_VISUAL[status] ?? STATUS_VISUAL.failed;
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium", map.cls)}>
-      <map.I size={13} weight="bold" className={map.spin ? "animate-spin" : undefined} />
+    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium", map.cls, map.busy && "pulse-ring")}>
+      <map.I size={13} weight="bold" className={map.busy ? "animate-spin" : undefined} />
       {map.label}
+    </span>
+  );
+}
+
+/** Horizontal confidence bar (0–100). */
+export function ConfidenceBar({ value, className }: { value: number | null; className?: string }) {
+  if (value == null) return null;
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  const color =
+    pct >= 80 ? "linear-gradient(90deg,#6ee7a0,#16a34a)"
+    : pct >= 50 ? "linear-gradient(90deg,#ffcf6b,#ff7a00)"
+    : "linear-gradient(90deg,#ff8a80,#e11d2e)";
+  return (
+    <div className={cn("space-y-1", className)}>
+      <div className="flex items-center justify-between text-[11px] text-faint">
+        <span>OCR confidence</span>
+        <span className="font-medium tabular-nums">{pct}%</span>
+      </div>
+      <div className="conf-bar-track">
+        <motion.div
+          className="conf-bar-fill"
+          style={{ background: color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 1, delay: 0.3, ease: [0.32, 0.72, 0, 1] }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Simple tooltip wrapper. */
+export function Tooltip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="tooltip">
+      {children}
+      <span className="tooltip-label">{label}</span>
     </span>
   );
 }

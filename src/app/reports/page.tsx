@@ -1,13 +1,13 @@
 "use client";
 
-import { CalendarBlank, DownloadSimple, FilePdf, Files, IdentificationCard, Invoice, Receipt } from "@phosphor-icons/react";
+import { Bank, CalendarBlank, Certificate, DownloadSimple, FilePdf, Files, IdentificationCard, Lightning } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { qs, useFetch, type Doc } from "@/lib/client";
 import { formatMoney, headline } from "@/lib/format";
 import { AppButton, Bezel, PageHeader, Pill, Reveal, Segmented } from "@/components/ui";
 
-type T = "all" | "invoice" | "receipt" | "id_card";
+type T = "all" | "electricity_bill" | "gst_certificate" | "bank_statement" | "id_card" | "invoice" | "receipt";
 
 function monthStart() {
   const d = new Date();
@@ -50,9 +50,12 @@ export default function ReportsPage() {
                   onChange={setType}
                   options={[
                     { value: "all", label: "All" },
+                    { value: "electricity_bill", label: "Electricity" },
+                    { value: "gst_certificate", label: "GST" },
+                    { value: "bank_statement", label: "Bank" },
+                    { value: "id_card", label: "KYC" },
                     { value: "invoice", label: "Invoices" },
                     { value: "receipt", label: "Receipts" },
-                    { value: "id_card", label: "ID Cards" },
                   ]}
                 />
               </div>
@@ -110,7 +113,7 @@ export default function ReportsPage() {
               </motion.p>
               <p className="text-sm text-muted">documents</p>
             </div>
-            {type !== "id_card" && (
+            {(type === "invoice" || type === "receipt" || type === "electricity_bill") && (
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Combined amount</p>
                 <p className="mt-2 font-mono text-2xl">{formatMoney(amount)}</p>
@@ -118,11 +121,12 @@ export default function ReportsPage() {
             )}
             <div>
               <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Quick reports</p>
-              <div className="grid grid-cols-4 gap-2">
-                <AppButton icon={Files} tone="teal" label="All" href="/api/reports/summary" size={50} />
-                <AppButton icon={Invoice} tone="blue" label="Invoices" href="/api/reports/summary?type=invoice" size={50} />
-                <AppButton icon={Receipt} tone="orange" label="Receipts" href="/api/reports/summary?type=receipt" size={50} />
-                <AppButton icon={IdentificationCard} tone="green" label="IDs" href="/api/reports/summary?type=id_card" size={50} />
+              <div className="grid grid-cols-5 gap-2">
+                <AppButton icon={Files} tone="gray" label="All" href="/api/reports/summary" size={50} />
+                <AppButton icon={Lightning} tone="orange" label="Bills" href="/api/reports/summary?type=electricity_bill" size={50} />
+                <AppButton icon={Certificate} tone="indigo" label="GST" href="/api/reports/summary?type=gst_certificate" size={50} />
+                <AppButton icon={Bank} tone="teal" label="Bank" href="/api/reports/summary?type=bank_statement" size={50} />
+                <AppButton icon={IdentificationCard} tone="green" label="KYC" href="/api/reports/summary?type=id_card" size={50} />
               </div>
             </div>
           </Bezel>

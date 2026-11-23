@@ -1,10 +1,21 @@
 import { and, desc, eq, gte, ilike, lte, or, sql, type SQL } from "drizzle-orm";
 import type { DB } from "@/db";
-import { documents, type DocumentRow, type NewDocument } from "@/db/schema";
-import type { DocType } from "./types";
+import {
+  documentEvents,
+  documentExtractions,
+  documents,
+  type DocumentRow,
+  type EventRow,
+  type ExtractionRow,
+  type NewDocument,
+  type NewExtraction,
+} from "@/db/schema";
+import type { DocStatus, DocType, ReviewAction } from "./types";
 
 export interface ListFilter {
   type?: DocType;
+  status?: DocStatus;
+  customerId?: string;
   q?: string;
   from?: Date;
   to?: Date;
@@ -33,6 +44,61 @@ export function createDocumentsRepo(db: DB) {
       return row;
     },
 
+    /**
+     * Move a document to a new status, applying `patch`, and record the transition in the audit log.
+     * Returns undefined if the document doesn't exist.
+     */
+    async transition(
+      id: string,
+      to: DocStatus,
+      patch: Partial<NewDocument> = {},
+      event: { action?: ReviewAction | "system"; actor?: string; note?: string | null } = {},
+    ): Promise<DocumentRow | undefined> {
+      return db.transaction(async (tx) => {
+        const [cur] = await tx.select({ status: documents.status }).from(documents).where(eq(documents.id, id)).for("update");
+        if (!cur) return undefined;
+        const [row] = await tx
+          .update(documents)
+          .set({ ...patch, status: to, updatedAt: new Date() })
+          .where(eq(documents.id, id))
+          .returning();
+        await tx.insert(documentEvents).values({
+          documentId: id,
+          fromStatus: cur.status,
+          toStatus: to,
+          action: event.action ?? "system",
+          actor: event.actor ?? "system",
+          note: event.note ?? null,
+        });
+        return row;
+      });
+    },
+
+    async addExtraction(input: NewExtraction): Promise<ExtractionRow> {
+      const [row] = await db.insert(documentExtractions).values(input).returning();
+      return row;
+    },
+
+    async updateExtraction(id: string, patch: Partial<NewExtraction>): Promise<void> {
+      await db.update(documentExtractions).set(patch).where(eq(documentExtractions.id, id));
+    },
+
+    async extractions(documentId: string): Promise<ExtractionRow[]> {
+      return db
+        .select()
+        .from(documentExtractions)
+        .where(eq(documentExtractions.documentId, documentId))
+        .orderBy(desc(documentExtractions.createdAt));
+    },
+
+    async events(documentId: string): Promise<EventRow[]> {
+      return db
+        .select()
+        .from(documentEvents)
+        .where(eq(documentEvents.documentId, documentId))
+        .orderBy(desc(documentEvents.createdAt), desc(documentEvents.id));
+    },
+
     async remove(id: string): Promise<DocumentRow | undefined> {
       const [row] = await db.delete(documents).where(eq(documents.id, id)).returning();
       return row;
@@ -41,6 +107,8 @@ export function createDocumentsRepo(db: DB) {
     async list(f: ListFilter = {}): Promise<{ items: DocumentRow[]; total: number }> {
       const conds: SQL[] = [];
       if (f.type) conds.push(eq(documents.docType, f.type));
+      if (f.status) conds.push(eq(documents.status, f.status));
+      if (f.customerId) conds.push(eq(documents.customerId, f.customerId));
       if (f.from) conds.push(gte(documents.createdAt, f.from));
       if (f.to) conds.push(lte(documents.createdAt, f.to));
       if (f.q) {

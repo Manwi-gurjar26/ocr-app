@@ -20,7 +20,7 @@ test("scan → review → edit → report → delete", async ({ page }, info) =>
   await page.goto("/scan");
   await expect(page.getByText("Drag files here")).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles("samples/invoice.png");
-  await expect(page.getByText("Scanning").first()).toBeVisible();
+  await expect(page.getByText(/Uploaded|Reading|Extracted|Validating/).first()).toBeVisible();
   await shot(page, "scan-progress", p);
   await expect(page.getByText("Sharma Electronics Pvt Ltd")).toBeVisible({ timeout: 90_000 });
   await shot(page, "scan-done", p);
@@ -33,7 +33,7 @@ test("scan → review → edit → report → delete", async ({ page }, info) =>
 
   await page.locator("label", { hasText: "Customer" }).locator("input").fill(customer);
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Saved to database")).toBeVisible();
+  await expect(page.getByText(/Saved/)).toBeVisible();
 
   const reportHref = await page.getByRole("link", { name: "Download PDF report" }).getAttribute("href");
   const res = await page.request.get(reportHref!);

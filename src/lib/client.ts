@@ -1,10 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DocStatus, DocType, ExtractionMethod } from "./types";
+import type { DeclaredDetails, DocStatus, DocType, ExtractionMethod, OcrProviderName, ValidationResult } from "./types";
 
 export interface Doc {
   id: string;
+  customerId: string | null;
+  declaredType: DocType | null;
+  declared: DeclaredDetails;
+  ocrProvider: OcrProviderName | null;
+  validation: ValidationResult | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
   fileName: string;
   mimeType: string;
   fileSize: number;
@@ -24,6 +32,17 @@ export interface Stats {
   byType: Partial<Record<DocType, number>>;
   byStatus: Partial<Record<DocStatus, number>>;
   aiEnabled: boolean;
+  providers?: { textract: boolean; perfios: boolean };
+}
+
+export interface DocEvent {
+  id: string;
+  fromStatus: DocStatus | null;
+  toStatus: DocStatus;
+  action: string;
+  actor: string;
+  note: string | null;
+  createdAt: string;
 }
 
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {

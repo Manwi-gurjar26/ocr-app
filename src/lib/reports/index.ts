@@ -1,5 +1,8 @@
 import type { DocumentRow } from "@/db/schema";
-import { displayFields, formatDate, formatMoney, headline, itemsOf, TYPE_LABEL } from "../format";
+import { displayFields, formatDate, formatMoney, headline, itemsOf, STATUS_LABEL, TYPE_LABEL } from "../format";
+import { isBusy } from "../types";
+
+const EXTRACTION_LABEL: Record<string, string> = { ai: "AI vision", rules: "OCR rules", textract: "Amazon Textract", perfios: "Perfios" };
 import { PdfWriter } from "./pdf-kit";
 
 function stamp(d: Date) {
@@ -16,8 +19,8 @@ export async function documentReport(doc: DocumentRow, opts: { includeText?: boo
     { label: "File", value: doc.fileName },
     { label: "Type", value: TYPE_LABEL[doc.docType] },
     { label: "Uploaded", value: stamp(doc.createdAt) },
-    { label: "Status", value: doc.status },
-    { label: "Extraction", value: doc.extractionMethod === "ai" ? "AI vision" : "OCR rules" },
+    { label: "Status", value: STATUS_LABEL[doc.status] ?? doc.status },
+    { label: "Extraction", value: EXTRACTION_LABEL[doc.extractionMethod ?? "rules"] ?? "OCR rules" },
     { label: "OCR confidence", value: doc.ocrConfidence != null ? `${Math.round(doc.ocrConfidence)}%` : "—" },
   ]);
 
@@ -26,6 +29,22 @@ export async function documentReport(doc: DocumentRow, opts: { includeText?: boo
     w.gap(8);
     w.sectionTitle("Extracted data");
     w.keyValues(rows);
+  }
+
+  const checks = doc.validation?.checks ?? [];
+  if (checks.length) {
+    w.gap(8);
+    w.sectionTitle("Validation");
+    w.table(
+      ["Result", "Check", "Detail"],
+      checks.map((c) => [c.status.toUpperCase(), c.label, c.message]),
+      [0.1, 0.3, 0.6],
+      ["left", "left", "left"],
+    );
+  }
+  if (doc.reviewedBy) {
+    w.gap(4);
+    w.text(`Reviewed by ${doc.reviewedBy}${doc.reviewedAt ? ` on ${stamp(doc.reviewedAt)}` : ""}${doc.reviewNote ? ` - ${doc.reviewNote}` : ""}`);
   }
 
   const items = itemsOf(doc.docType, fields);
@@ -68,33 +87,40 @@ export async function summaryReport(docs: DocumentRow[], opts: SummaryOptions = 
   const count = (t: string) => docs.filter((d) => d.docType === t).length;
   const sum = (t: string) =>
     docs
-      .filter((d) => d.docType === t && d.status === "done")
+      .filter((d) => d.docType === t && d.status !== "failed" && !isBusy(d.status))
       .reduce((a, d) => a + (headline(d.docType, d.fields as Record<string, unknown>).amount ?? 0), 0);
 
+  const byStatus = (s: string) => String(docs.filter((d) => d.status === s).length);
   w.stats([
     { label: "Documents", value: String(docs.length) },
-    { label: "Invoices", value: String(count("invoice")) },
-    { label: "Receipts", value: String(count("receipt")) },
-    { label: "ID cards", value: String(count("id_card")) },
+    { label: "Verified", value: byStatus("verified") },
+    { label: "Needs review", value: byStatus("manual_review") },
+    { label: "Failed", value: byStatus("failed") },
   ]);
   w.stats([
-    { label: "Invoice total", value: formatMoney(sum("invoice")) },
-    { label: "Receipt total", value: formatMoney(sum("receipt")) },
-    { label: "Failed", value: String(docs.filter((d) => d.status === "failed").length) },
+    { label: "Electricity bills", value: String(count("electricity_bill")) },
+    { label: "GST certificates", value: String(count("gst_certificate")) },
+    { label: "Bank statements", value: String(count("bank_statement")) },
+    { label: "KYC documents", value: String(count("id_card")) },
   ]);
+  if (count("invoice") || count("receipt"))
+    w.stats([
+      { label: "Invoice total", value: formatMoney(sum("invoice")) },
+      { label: "Receipt total", value: formatMoney(sum("receipt")) },
+    ]);
 
   w.sectionTitle("Documents");
   if (!docs.length) w.text("No documents match this filter.");
   else
     w.table(
-      ["Uploaded", "Type", "File", "Name / Party", "Amount"],
+      ["Uploaded", "Type", "Status", "Name / Party", "Amount"],
       docs.map((d) => {
         const f = d.fields as Record<string, unknown>;
         const h = headline(d.docType, f);
         return [
           formatDate(d.createdAt.toISOString()),
           TYPE_LABEL[d.docType],
-          d.fileName,
+          STATUS_LABEL[d.status] ?? d.status,
           h.title ?? (d.status === "failed" ? "Failed" : "—"),
           h.amount != null ? formatMoney(h.amount, f.currency) : "",
         ];
