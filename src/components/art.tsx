@@ -372,6 +372,188 @@ export function StarField({ className, count = 60 }: { className?: string; count
   );
 }
 
+/* ------------------------------------------------------------------ Rooftop solar → verified bill */
+
+const SUN_RAYS = Array.from({ length: 12 }, (_, i) => {
+  const [x1, y1] = polar(i * 30, 34);
+  const [x2, y2] = polar(i * 30, 46);
+  return { i, x1, y1, x2, y2 };
+});
+
+/** Flat factory roof seen slightly from above: front edge y=190, depth vector (34,-30). */
+const ROOF = { x: 140, y: 190, w: 380, dx: 34, dy: -30 };
+const roofPt = (u: number, v: number) => `${ROOF.x + ROOF.w * u + ROOF.dx * v},${ROOF.y + ROOF.dy * v}`;
+/** 3 rows x 9 columns of panels laid out on the roof plane. */
+const ROOF_PANELS = [0, 1, 2].flatMap((r) =>
+  Array.from({ length: 9 }, (_, c) => {
+    const u0 = 0.03 + c * 0.107;
+    const u1 = u0 + 0.094;
+    const v0 = 0.1 + r * 0.29;
+    const v1 = v0 + 0.24;
+    return { key: `${r}-${c}`, pts: [roofPt(u0, v0), roofPt(u1, v0), roofPt(u1, v1), roofPt(u0, v1)].join(" ") };
+  }),
+);
+
+/**
+ * A factory with rooftop solar feeding a meter, and the electricity bill being verified.
+ * Fills its container (preserveAspectRatio slice).
+ */
+export function RooftopScene({ className }: { className?: string }) {
+  const reduce = useReducedMotion();
+  const animate = !reduce;
+  const uid = useId().replace(/:/g, "");
+  const id = (n: string) => `rt-${n}-${uid}`;
+  const cable = "M548,168 C590,168 596,206 616,214 L640,214";
+  const toBill = "M690,232 C716,236 724,212 744,206";
+
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 860 340"
+      preserveAspectRatio="xMidYMax meet"
+      overflow="visible"
+      className={cn("scene", className)}
+    >
+      <defs>
+        <linearGradient id={id("sky")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--sky-top)" />
+          <stop offset="1" stopColor="var(--sky-bot)" />
+        </linearGradient>
+        <radialGradient id={id("glow")}>
+          <stop offset="0" stopColor="var(--sun)" stopOpacity="0.5" />
+          <stop offset="1" stopColor="var(--sun)" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={id("panel")} x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="var(--panel-a)" />
+          <stop offset="1" stopColor="var(--panel-b)" />
+        </linearGradient>
+        <linearGradient id={id("wall")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--surface)" />
+          <stop offset="1" stopColor="var(--surface-2)" />
+        </linearGradient>
+        <linearGradient id={id("sheen")} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.5" stopColor="#fff" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+        <clipPath id={id("panels")}>
+          {ROOF_PANELS.map((p) => (
+            <polygon key={p.key} points={p.pts} />
+          ))}
+        </clipPath>
+      </defs>
+
+      <rect x="-600" y="-700" width="2060" height="1040" fill={`url(#${id("sky")})`} />
+
+      {/* Sun with slowly turning rays */}
+      <g transform="translate(690 82)">
+        <circle r="110" fill={`url(#${id("glow")})`} />
+        <g className={animate ? "spin-slow" : undefined}>
+          {SUN_RAYS.map((r) => (
+            <line key={r.i} x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2} stroke="var(--sun)" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+          ))}
+        </g>
+        <circle r="26" fill="var(--sun)" />
+      </g>
+
+      {/* Clouds */}
+      <g fill="var(--cloud)">
+        {animate && <animateTransform attributeName="transform" type="translate" values="0 0; 36 0; 0 0" dur="30s" repeatCount="indefinite" />}
+        <ellipse cx="200" cy="60" rx="60" ry="11" />
+        <ellipse cx="236" cy="52" rx="34" ry="11" />
+      </g>
+
+      {/* Ground */}
+      <path d="M-600,262 L0,262 C220,248 520,250 860,258 L1460,258 L1460,700 L-600,700 Z" fill="var(--hill-near)" />
+      <rect x="-600" y="292" width="2060" height="400" fill="var(--ground)" />
+
+      {/* Factory */}
+      <g>
+        <rect x="140" y="190" width="380" height="96" fill={`url(#${id("wall")})`} stroke="var(--hair-strong)" />
+        {/* flat roof (top face) + right side face */}
+        <polygon points={`${roofPt(0, 0)} ${roofPt(1, 0)} ${roofPt(1, 1)} ${roofPt(0, 1)}`} fill="var(--surface-2)" stroke="var(--hair-strong)" strokeLinejoin="round" />
+        <polygon points={`${roofPt(1, 0)} ${roofPt(1, 1)} 554,256 520,286`} fill="var(--hair)" stroke="var(--hair-strong)" strokeLinejoin="round" />
+        {/* windows */}
+        {[0, 1, 2, 3, 4, 5, 6].map((c) => (
+          <rect key={c} x={162 + c * 50} y="208" width="30" height="20" rx="2" fill="var(--panel-b)" opacity="0.22" />
+        ))}
+        <rect x="300" y="244" width="44" height="42" rx="2" fill="var(--hair-strong)" />
+        <rect x="566" y="238" width="36" height="48" rx="3" fill={`url(#${id("wall")})`} stroke="var(--hair-strong)" />
+      </g>
+
+      {/* Rooftop panels + light sweep */}
+      <g>
+        {ROOF_PANELS.map((p) => (
+          <polygon key={p.key} points={p.pts} fill={`url(#${id("panel")})`} stroke="var(--panel-frame)" strokeWidth="0.8" />
+        ))}
+      </g>
+      {animate && (
+        <g clipPath={`url(#${id("panels")})`}>
+          <rect x="0" y="150" width="70" height="50" fill={`url(#${id("sheen")})`} transform="skewX(-25)">
+            <animate attributeName="x" values="160;700" dur="4.8s" repeatCount="indefinite" />
+          </rect>
+        </g>
+      )}
+
+      {/* Cable from roof to meter, with energy pulses */}
+      <path d={cable} fill="none" stroke="var(--wire)" strokeWidth="2" />
+      <path d={cable} fill="none" stroke="var(--sun)" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 14">
+        {animate && <animate attributeName="stroke-dashoffset" from="0" to="-160" dur="2.4s" repeatCount="indefinite" />}
+      </path>
+
+      {/* Meter with live bars */}
+      <g transform="translate(640 192)">
+        <rect width="50" height="62" rx="6" fill="var(--surface)" stroke="var(--hair-strong)" strokeWidth="1.5" />
+        <rect x="8" y="8" width="34" height="14" rx="2" fill="var(--panel-a)" />
+        {[0, 1, 2, 3].map((b) => (
+          <rect key={b} x={10 + b * 8} y="30" width="5" height="22" rx="1.5" fill="var(--accent)" opacity="0.8">
+            {animate && (
+              <animate
+                attributeName="height"
+                values={["8;22;12;18;8", "18;10;22;8;18", "12;20;8;22;12", "22;12;18;10;22"][b]}
+                dur="1.6s"
+                repeatCount="indefinite"
+              />
+            )}
+            {animate && (
+              <animate
+                attributeName="y"
+                values={["44;30;40;34;44", "34;42;30;44;34", "40;32;44;30;40", "30;40;34;42;30"][b]}
+                dur="1.6s"
+                repeatCount="indefinite"
+              />
+            )}
+          </rect>
+        ))}
+      </g>
+
+      {/* Data line from meter to the bill */}
+      <path d={toBill} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="3 5" opacity="0.7">
+        {animate && <animate attributeName="stroke-dashoffset" from="0" to="-32" dur="1.2s" repeatCount="indefinite" />}
+      </path>
+
+      {/* Electricity bill being verified */}
+      <g transform="translate(744 168)">
+        <g>
+          {animate && <animateTransform attributeName="transform" type="translate" values="0 0; 0 -5; 0 0" dur="4s" repeatCount="indefinite" />}
+          <rect width="76" height="96" rx="6" fill="var(--surface)" stroke="var(--hair-strong)" strokeWidth="1.5" />
+          <rect x="10" y="10" width="24" height="8" rx="2" fill="var(--sun)" />
+          <g stroke="var(--hair-strong)" strokeWidth="3" strokeLinecap="round">
+            <line x1="10" y1="32" x2="62" y2="32" />
+            <line x1="10" y1="44" x2="54" y2="44" />
+            <line x1="10" y1="56" x2="64" y2="56" />
+            <line x1="10" y1="68" x2="40" y2="68" />
+          </g>
+          <g transform="translate(62 82)">
+            <circle r="15" fill="var(--ok)" className={animate ? "pulse-soft" : undefined} />
+            <path d="M-6,0 L-2,4 L6,-5" fill="none" stroke="var(--surface)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  );
+}
+
 /** A document with a scan beam passing over it — used in the upload drop zone. */
 export function ScanArt({ active, className }: { active?: boolean; className?: string }) {
   const reduce = useReducedMotion();

@@ -303,6 +303,23 @@ table, .tabular {
     transform-origin: center;
     animation: scene-glow 6s ease-in-out infinite;
   }
+  @keyframes spin-slow {
+    to { transform: rotate(360deg); }
+  }
+  .spin-slow {
+    transform-box: view-box;
+    transform-origin: 0 0;
+    animation: spin-slow 40s linear infinite;
+  }
+  @keyframes pulse-soft {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); }
+  }
+  .pulse-soft {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pulse-soft 2.4s ease-in-out infinite;
+  }
   .scan-art {
     transition: transform 250ms var(--spring);
   }

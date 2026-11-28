@@ -3,7 +3,7 @@
 import { ArrowRight, ChartBar, CheckCircle, Eye, UploadSimple, FileText, MagnifyingGlass, Sparkle, SealCheck, XCircle } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { CountUp, SolarScene, StarField } from "@/components/art";
+import { CountUp, RooftopScene, SolarScene, StarField } from "@/components/art";
 import { DocTable, Panel } from "@/components/doc-table";
 import { Pill, Reveal, TypeIcon, cn } from "@/components/ui";
 import { qs, useFetch, type Doc, type Stats } from "@/lib/client";
@@ -157,8 +157,8 @@ export default function Overview() {
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Review queue */}
-        <Reveal delay={0.05} className="lg:col-span-8">
+        {/* Review queue + illustration (fills the column so it lines up with the side panels) */}
+        <Reveal delay={0.05} className="flex flex-col gap-6 lg:col-span-8">
           <Panel
             title="Review queue"
             description={queue ? `${queue.total} document${queue.total === 1 ? "" : "s"} failed at least one check` : "Loading\u2026"}
@@ -182,6 +182,33 @@ export default function Overview() {
               }
             />
           </Panel>
+
+          <section className="relative min-h-[300px] flex-1 overflow-hidden rounded-xl border border-hair bg-surface shadow-[var(--shadow-sm)]">
+            <RooftopScene className="absolute inset-0 h-full w-full" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-surface via-surface/70 to-transparent" />
+            <div className="relative p-5">
+              <h2 className="text-sm font-semibold text-fg">From rooftop to verified</h2>
+              <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted">
+                A factory&apos;s electricity bill is read, its consumption checked against KiloWattX rules, and the document verified
+                before the solar project moves ahead.
+              </p>
+              <ol className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-medium">
+                {["Bill read", "Units & dates checked", "Verified"].map((step, i) => (
+                  <li key={step} className="flex items-center gap-1.5">
+                    {i > 0 && <ArrowRight size={11} className="text-faint" />}
+                    <span
+                      className={cn(
+                        "rounded-md border px-2 py-0.5 backdrop-blur",
+                        i === 2 ? "border-ok/30 bg-ok-soft text-ok" : "border-hair bg-surface/80 text-muted",
+                      )}
+                    >
+                      {step}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
         </Reveal>
 
         {/* Side column */}
