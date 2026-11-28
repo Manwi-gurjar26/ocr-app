@@ -1,14 +1,13 @@
 "use client";
 
-import { CaretRight, MagnifyingGlass, Scan, UploadSimple } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "motion/react";
+import { MagnifyingGlass, UploadSimple, X } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { qs, relativeTime, useDebounced, useFetch, type Doc } from "@/lib/client";
-import { formatMoney, headline, TYPE_LABEL } from "@/lib/format";
+import { DocTable } from "@/components/doc-table";
+import { PageHeader, Pill, Reveal, Segmented } from "@/components/ui";
+import { qs, useDebounced, useFetch, type Doc } from "@/lib/client";
 import { isBusy, type DocStatus, type DocType } from "@/lib/types";
-import { AppIcon, Bezel, PageHeader, Pill, Reveal, Segmented, StatusBadge, TypeIcon } from "@/components/ui";
 
 type Filter = "all" | DocType;
 const FILTERS: { value: Filter; label: string }[] = [
@@ -53,85 +52,83 @@ function DocumentsInner() {
     setStatus(st);
     go(type, st);
   };
+  const filtered = Boolean(dq) || type !== "all" || status !== "all";
+  const clear = () => {
+    setQ("");
+    setType("all");
+    setStatus("all");
+    go("all", "all");
+  };
 
   return (
     <>
       <PageHeader
-        eyebrow="Library"
-        title="Your documents"
-        subtitle={data ? `${data.total} document${data.total === 1 ? "" : "s"} stored in PostgreSQL.` : "Loading\u2026"}
-        actions={<Pill href="/scan" icon={UploadSimple}>Scan new</Pill>}
+        eyebrow="Documents"
+        title={status === "manual_review" ? "Review queue" : "All documents"}
+        subtitle={
+          data
+            ? `${data.total.toLocaleString("en-IN")} document${data.total === 1 ? "" : "s"}${filtered ? " match the current filters" : ""}.`
+            : "Loading…"
+        }
+        actions={
+          <Pill href="/scan" icon={UploadSimple}>
+            Upload documents
+          </Pill>
+        }
       />
 
-      <Reveal className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="-mx-1 overflow-x-auto px-1">
+      <Reveal className="overflow-hidden rounded-xl border border-hair bg-surface shadow-[var(--shadow-sm)]">
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 border-b border-hair p-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 overflow-x-auto">
             <Segmented id="doc-filter" value={type} onChange={changeType} options={FILTERS} />
           </div>
-          <div className="-mx-1 overflow-x-auto px-1">
-            <Segmented id="status-filter" value={status} onChange={changeStatus} options={STATUS_FILTERS} />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <select
+              aria-label="Status"
+              className="field sm:w-40"
+              value={status}
+              onChange={(e) => changeStatus(e.target.value as StatusFilter)}
+            >
+              {STATUS_FILTERS.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <label className="relative block sm:w-72">
+              <span className="sr-only">Search</span>
+              <MagnifyingGlass size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search names, numbers, text" className="field pl-9" />
+            </label>
           </div>
         </div>
-        <label className="glass flex w-full items-center gap-2 rounded-full px-4 md:w-80">
-          <MagnifyingGlass size={16} className="relative z-[2] text-faint" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search names, numbers, text…"
-            className="relative z-[2] w-full bg-transparent py-2.5 text-sm outline-none placeholder:text-faint"
-          />
-        </label>
-      </Reveal>
 
-      {error && <p className="text-danger">{error}</p>}
-
-      <Bezel coreClassName="p-2 md:p-3">
-        {!data ? (
-          <div className="space-y-2 p-2">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="skeleton h-[68px] rounded-2xl" />
-            ))}
-          </div>
-        ) : data.items.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 py-20 text-center">
-            <AppIcon icon={Scan} tone="gray" size={64} />
-            <p className="text-muted">{dq || type !== "all" ? "Nothing matches these filters." : "No documents yet."}</p>
-          </div>
+        {error ? (
+          <p className="px-4 py-10 text-center text-sm text-danger">Couldn’t load documents: {error}</p>
         ) : (
-          <ul>
-            <AnimatePresence initial={false}>
-              {data.items.map((d, i) => {
-                const h = headline(d.docType, d.fields);
-                return (
-                  <motion.li
-                    key={d.id}
-                    layout
-                    initial={{ opacity: 0, y: 14 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.97 }}
-                    transition={{ duration: 0.55, delay: Math.min(i, 12) * 0.03, ease: [0.32, 0.72, 0, 1] }}
-                  >
-                    <Link
-                      href={`/documents/${d.id}`}
-                      className="group flex items-center gap-4 rounded-[1.4rem] p-3 transition-colors duration-500 ease-spring hover:bg-ink/[0.05] md:p-4"
-                    >
-                      <TypeIcon type={d.docType} size={46} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{h.title ?? d.fileName}</p>
-                        <p className="truncate text-xs text-faint">
-                          {TYPE_LABEL[d.docType]} · {d.fileName} · {relativeTime(d.createdAt)}
-                        </p>
-                      </div>
-                      {h.amount != null && <span className="hidden font-mono text-sm md:block">{formatMoney(h.amount, d.fields.currency)}</span>}
-                      <StatusBadge status={d.status} />
-                      <CaretRight size={16} className="text-faint transition-transform duration-500 ease-spring group-hover:translate-x-1" />
-                    </Link>                  </motion.li>
-                );
-              })}
-            </AnimatePresence>
-          </ul>
+          <DocTable
+            docs={data?.items}
+            empty={
+              filtered ? (
+                <span>
+                  No documents match these filters.{" "}
+                  <button onClick={clear} className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
+                    <X size={12} /> Clear filters
+                  </button>
+                </span>
+              ) : (
+                <span>
+                  No documents yet.{" "}
+                  <Link href="/scan" className="font-medium text-accent hover:underline">
+                    Upload the first one
+                  </Link>
+                </span>
+              )
+            }
+          />
         )}
-      </Bezel>
+      </Reveal>
     </>
   );
 }

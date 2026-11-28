@@ -28,7 +28,7 @@ function apply(pref: ThemePref) {
   const d = document.documentElement;
   d.setAttribute("data-theme", resolve(pref));
   d.setAttribute("data-theme-pref", pref);
-  const color = resolve(pref) === "light" ? "#eef1f7" : "#05060a";
+  const color = resolve(pref) === "light" ? "#f5f6f8" : "#0b0d10";
   document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute("content", color));
 }
 
@@ -79,7 +79,7 @@ export function ThemeToggle({ className, id = "theme" }: { className?: string; i
   }, [pref]);
 
   return (
-    <div role="radiogroup" aria-label="Color theme" className={cn("relative z-[2] flex items-center gap-0.5 rounded-full", className)}>
+    <div role="radiogroup" aria-label="Color theme" className={cn("relative flex items-center gap-0.5 rounded-lg border border-hair bg-surface-2 p-0.5", className)}>
       {OPTIONS.map(({ value, label, icon: I }) => {
         const active = pref === value;
         return (
@@ -92,13 +92,13 @@ export function ThemeToggle({ className, id = "theme" }: { className?: string; i
             title={`${label} theme`}
             onClick={() => setThemePref(value)}
             className={cn(
-              "relative grid h-8 w-8 place-items-center rounded-full outline-none transition-colors duration-500 ease-spring focus-visible:ring-2 focus-visible:ring-sky-400/60",
+              "relative z-[1] grid h-7 w-7 place-items-center rounded-md transition-colors duration-150",
               active ? "text-fg" : "text-faint hover:text-fg",
             )}
           >
-            {active && <motion.span layoutId={`theme-pill-${id}`} transition={spring} className="glass-pill absolute inset-0 -z-10 rounded-full" />}
-            <motion.span whileTap={{ scale: 0.82, rotate: value === "light" ? 45 : value === "dark" ? -20 : 0 }} transition={spring}>
-              <I size={16} weight={active ? "fill" : "regular"} />
+            {active && <motion.span layoutId={`theme-pill-${id}`} transition={spring} className="glass-pill absolute inset-0 -z-10 rounded-md" />}
+            <motion.span whileTap={{ scale: 0.9 }} transition={spring}>
+              <I size={14} weight={active ? "bold" : "regular"} />
             </motion.span>
           </button>
         );

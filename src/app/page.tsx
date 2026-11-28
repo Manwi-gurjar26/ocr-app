@@ -1,236 +1,396 @@
 "use client";
 
-import { Bank, Certificate, ChartPieSlice, CircleNotch, Eye, Files, IdentificationCard, Invoice, Lightning, Scan, Sparkle, UploadSimple } from "@phosphor-icons/react";
-import { AnimatePresence, motion } from "motion/react";
+import { ArrowRight, ChartBar, CheckCircle, Eye, UploadSimple, FileText, MagnifyingGlass, Sparkle, SealCheck, XCircle } from "@phosphor-icons/react";
+import { motion } from "motion/react";
 import Link from "next/link";
-import { qs, relativeTime, useFetch, type Doc, type Stats } from "@/lib/client";
-import { formatMoney, headline, TYPE_LABEL } from "@/lib/format";
-import { isBusy } from "@/lib/types";
-import { AppButton, AppIcon, Bezel, Eyebrow, Pill, Reveal, StatusBadge, TypeIcon, type Tone } from "@/components/ui";
+import { CountUp, RooftopScene, SolarScene, StarField } from "@/components/art";
+import { DocTable, Panel } from "@/components/doc-table";
+import { Pill, Reveal, TypeIcon, cn } from "@/components/ui";
+import { qs, useFetch, type Doc, type Stats } from "@/lib/client";
+import { TYPE_LABEL } from "@/lib/format";
+import { BUSY_STATUSES, isBusy, type DocType } from "@/lib/types";
 
-export default function Dashboard() {
-  const { data: stats } = useFetch<Stats>("/api/stats", (s) => Object.entries(s.byStatus).some(([k, n]) => isBusy(k as never) && (n ?? 0) > 0));
-  const { data: recent } = useFetch<{ items: Doc[] }>(`/api/documents${qs({ limit: 6 })}`, (r) => r.items.some((d) => isBusy(d.status)));
+const TYPE_ORDER: DocType[] = ["electricity_bill", "gst_certificate", "bank_statement", "id_card", "invoice", "receipt"];
 
+export default function Overview() {
+  const { data: stats } = useFetch<Stats>("/api/stats", (s) => BUSY_STATUSES.some((k) => (s.byStatus[k] ?? 0) > 0));
+  const { data: recent } = useFetch<{ items: Doc[] }>(`/api/documents${qs({ limit: 8 })}`, (r) => r.items.some((d) => isBusy(d.status)));
+  const { data: queue } = useFetch<{ items: Doc[]; total: number }>(`/api/documents${qs({ status: "manual_review", limit: 6 })}`);
+
+  const by = stats?.byStatus ?? {};
   const total = stats?.total ?? 0;
-  const processing = (["uploaded", "processing", "extracted", "validation_pending"] as const).reduce((a, k) => a + (stats?.byStatus[k] ?? 0), 0);
-  const review = stats?.byStatus.manual_review ?? 0;
-  const tiles: { label: string; value: number; icon: typeof Invoice; tone: Tone; href: string }[] = [
-    { label: "Needs review", value: review, icon: Eye, tone: "red", href: "/documents?status=manual_review" },
-    { label: "Electricity bills", value: stats?.byType.electricity_bill ?? 0, icon: Lightning, tone: "orange", href: "/documents?type=electricity_bill" },
-    { label: "GST certificates", value: stats?.byType.gst_certificate ?? 0, icon: Certificate, tone: "indigo", href: "/documents?type=gst_certificate" },
-    { label: "Bank statements", value: stats?.byType.bank_statement ?? 0, icon: Bank, tone: "teal", href: "/documents?type=bank_statement" },
-    { label: "KYC documents", value: stats?.byType.id_card ?? 0, icon: IdentificationCard, tone: "green", href: "/documents?type=id_card" },
-    { label: "Invoices", value: stats?.byType.invoice ?? 0, icon: Invoice, tone: "blue", href: "/documents?type=invoice" },
+  const processing = BUSY_STATUSES.reduce((a, k) => a + (by[k] ?? 0), 0);
+  const decided = (by.verified ?? 0) + (by.manual_review ?? 0) + (by.failed ?? 0);
+  const rate = decided ? Math.round(((by.verified ?? 0) / decided) * 1000) / 10 : null;
+
+  const kpis = [
+    { label: "Documents", value: total, note: processing ? `${processing} processing now` : "All processed", href: "/documents" },
+    {
+      label: "Verified",
+      value: by.verified ?? 0,
+      note: rate != null ? `${rate}% pass rate` : "No decisions yet",
+      href: "/documents?status=verified",
+      tone: "text-ok",
+    },
+    { label: "Needs review", value: by.manual_review ?? 0, note: "Awaiting a reviewer", href: "/documents?status=manual_review", tone: "text-warn" },
+    { label: "Failed", value: by.failed ?? 0, note: "Rejected or unreadable", href: "/documents?status=failed", tone: "text-danger" },
   ];
 
-  const typeTiles = tiles.filter((t) => t.href.includes("type="));
-
   return (
-    <div className="grid grid-cols-1 gap-5 md:grid-cols-12 md:gap-6">
-      {/* Hero */}
-      <Reveal className="md:col-span-8 md:row-span-2">
-        <Bezel className="h-full" coreClassName="p-8 md:p-12">
-          <div className="flex h-full flex-col justify-between gap-12">
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center gap-3">
-                <Eyebrow>Document intelligence</Eyebrow>
-                <AnimatePresence>
-                  {processing > 0 && (
-                    <motion.span
-                      key="processing-pill"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-sky-400/10 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-info pulse-ring"
-                    >
-                      <CircleNotch size={11} className="animate-spin" />
-                      {processing} processing
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
-              <h1 className="max-w-xl text-5xl font-semibold leading-[0.95] tracking-[-0.045em] md:text-7xl">
-                Paper in.
-                <br />
-                <span className="hero-gradient">Data out.</span>
-              </h1>
-              <p className="max-w-md text-[15px] leading-relaxed text-muted">
-                Electricity bills, GST certificates, bank statements and KYC documents for KiloWattX. DocScan reads them,
-                extracts every field, checks them against business rules and sends anything doubtful to manual review.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-4">
-              <Pill href="/scan" icon={UploadSimple}>
-                Scan documents
-              </Pill>
-              <Pill href="/reports" variant="glass" icon={ChartPieSlice}>
-                Build a report
-              </Pill>
-            </div>
-          </div>
-        </Bezel>
-      </Reveal>
+    <>
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <Reveal className="relative mb-6 overflow-hidden rounded-2xl border border-hair bg-surface shadow-[var(--shadow-md)]">
+        {/* Background: star field + solar farm landscape */}
+        <div className="pointer-events-none absolute inset-0">
+          {/* Star field — dark sky layer */}
+          <StarField
+            className="absolute inset-0 h-full w-full text-faint opacity-60"
+            count={80}
+          />
+          {/* Solar farm scene at bottom */}
+          <SolarScene variant="hero" className="absolute inset-0 h-full w-full" />
+          {/* gradient to keep text legible on the left */}
+          <div className="absolute inset-0 bg-gradient-to-r from-surface via-surface/80 to-transparent md:via-surface/60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface/90 via-transparent to-transparent" />
+        </div>
 
-      {/* Total */}
-      <Reveal delay={0.08} className="md:col-span-4">
-        <Bezel className="h-full card-glow" coreClassName="p-7">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Documents stored</p>
-              <motion.p key={total} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-3 text-6xl font-semibold tracking-[-0.05em]">
-                {stats ? total : <span className="skeleton inline-block h-14 w-20 rounded-xl" />}
-              </motion.p>
-            </div>
-            <AppIcon icon={Files} tone="teal" size={48} />
-          </div>
-          <div className="mt-6 flex h-2 overflow-hidden rounded-full bg-ink/5">
-            {typeTiles.map((t, i) => (
-              <motion.div
-                key={t.label}
-                className={`tone-${t.tone} h-full`}
-                style={{ background: "linear-gradient(90deg,var(--c1),var(--c2))" }}
-                initial={{ width: 0 }}
-                animate={{ width: total ? `${(t.value / total) * 100}%` : 0 }}
-                transition={{ duration: 1.1, delay: 0.2 + i * 0.1, ease: [0.32, 0.72, 0, 1] }}
-              />
-            ))}
-          </div>
-          {/* Legend */}
-          <div className="mt-3 flex flex-wrap gap-3">
-            {typeTiles.map((t) => (
-              <Link key={t.label} href={t.href} className="flex items-center gap-1.5 text-[11px] text-faint transition-colors hover:text-muted">
-                <span className={`tone-${t.tone} inline-block h-2 w-2 rounded-full`} style={{ background: "var(--c2)" }} />
-                {t.label}
-                {stats && <span className="font-medium text-fg/60">({t.value})</span>}
-              </Link>
-            ))}
-          </div>
-        </Bezel>
-      </Reveal>
+        {/* Content */}
+        <div className="relative flex min-h-[360px] flex-col justify-center gap-6 p-6 md:min-h-[400px] md:max-w-[55%] md:p-12">
+          {/* Live status pill */}
+          <motion.span
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05 }}
+            className="inline-flex w-max items-center gap-2 rounded-full border border-hair bg-surface/80 px-3 py-1 text-xs font-medium text-muted backdrop-blur"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ok opacity-60 motion-reduce:hidden" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-ok" />
+            </span>
+            {processing ? `${processing} document${processing === 1 ? "" : "s"} processing` : "Verification pipeline online"}
+          </motion.span>
 
-      {/* Quick actions — iPhone home screen */}
-      <Reveal delay={0.14} className="md:col-span-4">
-        <Bezel className="h-full card-glow" coreClassName="p-6">
-          <p className="mb-5 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Quick actions</p>
-          <div className="grid grid-cols-4 gap-2">
-            <AppButton icon={Scan} tone="blue" label="Scan" href="/scan" size={54} />
-            <AppButton icon={Files} tone="teal" label="Library" href="/documents" size={54} />
-            <AppButton icon={ChartPieSlice} tone="pink" label="Reports" href="/reports" size={54} />
-            <AppButton icon={Sparkle} tone="indigo" label="AI" href="#engine" size={54} />
-          </div>
-        </Bezel>
-      </Reveal>
+          {/* Headline */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, delay: 0.1, ease: [0.2, 0.8, 0.2, 1] }}
+            className="space-y-4"
+          >
+            <h1 className="text-4xl font-semibold tracking-[-0.035em] text-fg md:text-5xl md:leading-[1.1]">
+              Document{" "}
+              <span className="hero-gradient-animated">verification</span>
+            </h1>
+            <p className="max-w-md text-[15px] leading-relaxed text-muted">
+              Electricity bills, GST certificates, bank statements and KYC documents are read, checked against KiloWattX rules, and
+              either verified or routed to a reviewer.
+            </p>
+          </motion.div>
 
-      {/* Per-type tiles */}
-      {tiles.map((t, i) => (
-        <Reveal key={t.label} delay={0.1 + i * 0.06} className="md:col-span-4">
-          <Link href={t.href} className="group block">
-            <Bezel coreClassName="p-6 transition-transform duration-700 ease-spring group-hover:-translate-y-1 card-glow">
-              <div className="flex items-center gap-4">
-                <AppIcon icon={t.icon} tone={t.tone} size={48} />
-                <div className="min-w-0 flex-1">
-                  <motion.p key={t.value} className="text-3xl font-semibold tracking-tight count-in">{t.value}</motion.p>
-                  <p className="text-sm text-muted">{t.label}</p>
-                </div>
-                {/* mini share bar */}
-                {total > 0 && (
-                  <div className="hidden flex-col items-end gap-1 sm:flex">
-                    <span className="text-[11px] font-mono text-faint">
-                      {Math.round((t.value / total) * 100)}%
-                    </span>
-                    <div className="conf-bar-track w-16">
-                      <motion.div
-                        className={`tone-${t.tone} conf-bar-fill`}
-                        style={{ background: "linear-gradient(90deg,var(--c1),var(--c2))" }}
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(t.value / total) * 100}%` }}
-                        transition={{ duration: 1.2, delay: 0.3 + i * 0.1, ease: [0.32, 0.72, 0, 1] }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Bezel>
-          </Link>
-        </Reveal>
-      ))}
-
-      {/* Recent */}
-      <Reveal delay={0.1} className="md:col-span-8">
-        <Bezel coreClassName="p-6 md:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold tracking-tight">Recent scans</h2>
-            <Link href="/documents" className="inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg">
-              View all <span className="text-faint">→</span>
-            </Link>
-          </div>
-          {!recent ? (
-            <div className="space-y-3">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="skeleton h-16 rounded-2xl" />
+          {/* KPI quick glance — inline in hero */}
+          {stats && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-wrap gap-4"
+            >
+              {kpis.slice(0, 3).map((k) => (
+                <Link key={k.label} href={k.href} className="group flex items-center gap-2 rounded-xl border border-hair bg-surface/60 px-4 py-2.5 backdrop-blur transition-all hover:border-hair-strong hover:shadow-[var(--shadow-sm)]">
+                  <span className={cn("text-xl font-semibold tabular-nums tracking-tight", k.tone ?? "text-fg")}>
+                    <CountUp value={k.value} duration={600} />
+                  </span>
+                  <span className="text-xs text-muted">{k.label}</span>
+                </Link>
               ))}
+            </motion.div>
+          )}
+
+          {/* CTA buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
+            className="flex flex-wrap gap-2"
+          >
+            <Pill href="/scan" icon={UploadSimple}>
+              Upload documents
+            </Pill>
+            <Pill href="/documents?status=manual_review" variant="glass" icon={Eye}>
+              Review queue
+            </Pill>
+            <Pill href="/reports" variant="glass" icon={ChartBar}>
+              Reports
+            </Pill>
+          </motion.div>
+        </div>
+      </Reveal>
+
+      {/* ── KPI tiles ────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {kpis.map((k, i) => (
+          <motion.div
+            key={k.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.15 + i * 0.06, ease: [0.2, 0.8, 0.2, 1] }}
+          >
+          <Link
+            href={k.href}
+            className="lift group block h-full rounded-xl border border-hair bg-surface p-4 shadow-[var(--shadow-sm)]"
+          >
+            <p className="text-[13px] font-medium text-muted">{k.label}</p>
+            {stats ? (
+              <p className={cn("mt-1.5 text-[28px] font-semibold leading-none tracking-tight tabular", k.tone ?? "text-fg")}>
+                <CountUp value={k.value} />
+              </p>
+            ) : (
+              <div className="skeleton mt-2 h-7 w-14 rounded" />
+            )}
+            <p className="mt-2 flex items-center justify-between text-xs text-muted">
+              {k.note}
+              <ArrowRight size={12} className="-translate-x-1 opacity-0 transition-[opacity,transform] group-hover:translate-x-0 group-hover:opacity-100" />
+            </p>
+          </Link>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Review queue + illustration (fills the column so it lines up with the side panels) */}
+        <Reveal delay={0.05} className="flex flex-col gap-6 lg:col-span-8">
+          <Panel
+            title="Review queue"
+            description={queue ? `${queue.total} document${queue.total === 1 ? "" : "s"} failed at least one check` : "Loading\u2026"}
+            action={
+              queue && queue.total > 0 ? (
+                <Link href="/documents?status=manual_review" className="text-xs font-medium text-accent hover:underline">
+                  View all
+                </Link>
+              ) : null
+            }
+          >
+            <DocTable
+              docs={queue?.items}
+              compact
+              showReason
+              empty={
+                <span className="inline-flex items-center gap-2">
+                  <CheckCircle size={16} className="text-ok" weight="fill" />
+                  Nothing waiting for review.
+                </span>
+              }
+            />
+          </Panel>
+
+          <section className="relative min-h-[300px] flex-1 overflow-hidden rounded-xl border border-hair bg-surface shadow-[var(--shadow-sm)]">
+            <RooftopScene className="absolute inset-0 h-full w-full" />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-surface via-surface/70 to-transparent" />
+            <div className="relative p-5">
+              <h2 className="text-sm font-semibold text-fg">From rooftop to verified</h2>
+              <p className="mt-1 max-w-sm text-xs leading-relaxed text-muted">
+                A factory&apos;s electricity bill is read, its consumption checked against KiloWattX rules, and the document verified
+                before the solar project moves ahead.
+              </p>
+              <ol className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-medium">
+                {["Bill read", "Units & dates checked", "Verified"].map((step, i) => (
+                  <li key={step} className="flex items-center gap-1.5">
+                    {i > 0 && <ArrowRight size={11} className="text-faint" />}
+                    <span
+                      className={cn(
+                        "rounded-md border px-2 py-0.5 backdrop-blur",
+                        i === 2 ? "border-ok/30 bg-ok-soft text-ok" : "border-hair bg-surface/80 text-muted",
+                      )}
+                    >
+                      {step}
+                    </span>
+                  </li>
+                ))}
+              </ol>
             </div>
-          ) : recent.items.length === 0 ? (
-            <div className="flex flex-col items-center gap-4 py-10 text-center">
-              <AppIcon icon={Scan} tone="blue" size={64} />
-              <p className="text-muted">No documents yet. Scan your first one.</p>
-              <Pill href="/scan" icon={UploadSimple}>Start scanning</Pill>
-            </div>
-          ) : (
-            <ul className="space-y-1">
-              {recent.items.map((d, i) => {
-                const h = headline(d.docType, d.fields);
+          </section>
+        </Reveal>
+
+        {/* Side column */}
+        <Reveal delay={0.1} className="space-y-6 lg:col-span-4">
+          <Panel title="By document type">
+            <ul className="divide-y divide-hair">
+              {TYPE_ORDER.map((t) => {
+                const n = stats?.byType[t] ?? 0;
                 return (
-                  <motion.li key={d.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05, duration: 0.6, ease: [0.32, 0.72, 0, 1] }}>
-                    <Link href={`/documents/${d.id}`} className="flex items-center gap-4 rounded-2xl p-3 transition-colors duration-500 ease-spring hover:bg-ink/[0.05]">
-                      <TypeIcon type={d.docType} size={40} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[15px] font-medium">{h.title ?? d.fileName}</p>
-                        <p className="truncate text-xs text-faint">
-                          {TYPE_LABEL[d.docType]} · {relativeTime(d.createdAt)}
-                        </p>
-                      </div>
-                      {h.amount != null && <span className="hidden font-mono text-sm sm:block">{formatMoney(h.amount, d.fields.currency)}</span>}
-                      <StatusBadge status={d.status} />
+                  <li key={t}>
+                    <Link href={`/documents?type=${t}`} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-2">
+                      <TypeIcon type={t} size={28} />
+                      <span className="flex-1 text-sm">{TYPE_LABEL[t]}</span>
+                      <span className="w-16">
+                        <span className="conf-bar-track block">
+                          <span
+                            className="conf-bar-fill block bg-accent/70"
+                            style={{ width: total ? `${Math.max((n / total) * 100, n ? 4 : 0)}%` : 0 }}
+                          />
+                        </span>
+                      </span>
+                      <span className="w-6 text-right text-sm font-medium tabular">{n}</span>
                     </Link>
-                  </motion.li>
+                  </li>
                 );
               })}
             </ul>
-          )}
-        </Bezel>
+          </Panel>
+
+          <Panel title="Verification providers" description="Where each document type is read">
+            <ul className="divide-y divide-hair text-sm">
+              {[
+                { name: "Local OCR (Tesseract)", scope: "Fallback for all types", on: true },
+                { name: "Amazon Textract", scope: "Electricity bills, GST", on: !!stats?.providers?.textract },
+                { name: "Perfios", scope: "KYC, bank statements", on: !!stats?.providers?.perfios },
+                { name: "Claude vision", scope: "Field extraction", on: !!stats?.aiEnabled },
+              ].map((p) => (
+                <li key={p.name} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className={cn("h-2 w-2 shrink-0 rounded-full", p.on ? "bg-ok" : "bg-hair-strong")} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{p.name}</span>
+                    <span className="block truncate text-xs text-muted">{p.scope}</span>
+                  </span>
+                  <span className={cn("text-xs", p.on ? "text-ok" : "text-faint")}>{p.on ? "Active" : "Not configured"}</span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </Reveal>
+      </div>
+
+      <Reveal delay={0.12} className="mt-6">
+        {/* ── Verification Pipeline strip ───────────────────────────────── */}
+        <Panel title="Verification pipeline" description="Live document flow across all processing stages">
+          <div className="relative overflow-hidden px-4 pb-6 pt-4">
+            {/* Connecting line behind the steps */}
+            <div className="absolute left-0 right-0 top-[52px] mx-[calc(100%/10)] hidden h-px bg-hair md:block" />
+            {/* Animated pulse travelling along the line */}
+            <div className="pipeline-pulse absolute left-0 right-0 top-[52px] mx-[calc(100%/10)] hidden h-px md:block" />
+
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+              {[
+                {
+                  icon: FileText,
+                  label: "Uploaded",
+                  value: total,
+                  color: "text-accent",
+                  bg: "bg-accent/10",
+                  desc: "Total received",
+                },
+                {
+                  icon: MagnifyingGlass,
+                  label: "Processing",
+                  value: processing,
+                  color: "text-info",
+                  bg: "bg-info/10",
+                  desc: "OCR + extraction",
+                },
+                {
+                  icon: Sparkle,
+                  label: "Reviewed",
+                  value: by.manual_review ?? 0,
+                  color: "text-warn",
+                  bg: "bg-warn/10",
+                  desc: "Needs a reviewer",
+                },
+                {
+                  icon: SealCheck,
+                  label: "Verified",
+                  value: by.verified ?? 0,
+                  color: "text-ok",
+                  bg: "bg-ok/10",
+                  desc: "Passed all checks",
+                },
+                {
+                  icon: XCircle,
+                  label: "Failed",
+                  value: by.failed ?? 0,
+                  color: "text-danger",
+                  bg: "bg-danger/10",
+                  desc: "Rejected / unreadable",
+                },
+              ].map((step, i) => (
+                <motion.div
+                  key={step.label}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.45, delay: 0.08 + i * 0.07, ease: [0.2, 0.8, 0.2, 1] }}
+                  className="flex flex-col items-center gap-2 text-center"
+                >
+                  {/* Icon bubble */}
+                  <div className={`relative flex h-14 w-14 items-center justify-center rounded-full border border-hair ${step.bg} shadow-[var(--shadow-sm)]`}>
+                    <step.icon size={22} className={step.color} weight="duotone" />
+                    {/* Pulsing ring for processing step */}
+                    {step.label === "Processing" && processing > 0 && (
+                      <span className="absolute inset-0 animate-ping rounded-full border-2 border-info opacity-40 motion-reduce:hidden" />
+                    )}
+                    {/* Step number badge */}
+                    <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-surface border border-hair text-[9px] font-bold text-muted">
+                      {i + 1}
+                    </span>
+                  </div>
+                  {/* Count */}
+                  {stats ? (
+                    <p className={`text-2xl font-semibold leading-none tracking-tight tabular-nums ${step.color}`}>
+                      <CountUp value={step.value} duration={700} />
+                    </p>
+                  ) : (
+                    <div className="skeleton h-7 w-10 rounded" />
+                  )}
+                  <p className="text-[13px] font-medium text-fg">{step.label}</p>
+                  <p className="text-[11px] text-muted">{step.desc}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Pass-rate bar */}
+            {decided > 0 && (
+              <div className="mt-6 space-y-1.5 border-t border-hair pt-4">
+                <div className="flex items-center justify-between text-xs text-muted">
+                  <span>Overall verification rate</span>
+                  <span className="font-semibold tabular-nums text-fg">{rate ?? 0}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-ok/70 to-ok"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${rate ?? 0}%` }}
+                    transition={{ duration: 1.2, delay: 0.4, ease: [0.2, 0.8, 0.2, 1] }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted">
+                  {by.verified ?? 0} verified out of {decided} decided documents
+                </p>
+              </div>
+            )}
+          </div>
+        </Panel>
       </Reveal>
 
-      {/* Engine */}
-      <Reveal delay={0.16} className="md:col-span-4" id="engine">
-        <Bezel className="h-full" coreClassName="p-6 md:p-8">
-          <AppIcon icon={Sparkle} tone={stats?.aiEnabled ? "indigo" : "gray"} size={48} />
-          <h3 className="mt-5 text-lg font-semibold tracking-tight">{stats?.aiEnabled ? "AI vision is on" : "Offline OCR mode"}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            {stats?.aiEnabled
-              ? "Claude reads each page for high-accuracy fields, with OCR rules as a fallback."
-              : "Field rules over OCR text — free and private. Add ANTHROPIC_API_KEY to .env for AI-grade accuracy."}
-          </p>
-          <ul className="mt-4 space-y-1.5 text-xs">
-            {[
-              ["Amazon Textract", "bills & GST", stats?.providers?.textract],
-              ["Perfios", "KYC & bank", stats?.providers?.perfios],
-            ].map(([name, scope, on]) => (
-              <li key={name as string} className="flex items-center gap-2">
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${on ? "bg-ok" : "bg-faint"}`} />
-                <span className="text-muted">{name as string}</span>
-                <span className="text-faint">({scope as string}) · {on ? "connected" : "using local OCR"}</span>
-              </li>
-            ))}
-          </ul>
-          {/* live status dot */}
-          <div className="mt-6 flex items-center gap-2">
-            <span className={`inline-block h-2 w-2 rounded-full ${stats?.aiEnabled ? "bg-ok pulse-ring" : "bg-faint"}`} />
-            <span className="text-xs text-faint">{stats?.aiEnabled ? "Connected · Claude vision" : "Offline mode active"}</span>
-          </div>
-        </Bezel>
+      <Reveal delay={0.16} className="mt-6">
+        <Panel
+          title="Recent uploads"
+          action={
+            <Link href="/documents" className="text-xs font-medium text-accent hover:underline">
+              All documents
+            </Link>
+          }
+        >
+          <DocTable
+            docs={recent?.items}
+            empty={
+              <span>
+                No documents yet.{" "}
+                <Link href="/scan" className="font-medium text-accent hover:underline">
+                  Upload the first one
+                </Link>
+              </span>
+            }
+          />
+        </Panel>
       </Reveal>
-    </div>
+    </>
   );
 }

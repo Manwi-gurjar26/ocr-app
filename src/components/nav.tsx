@@ -1,96 +1,97 @@
 "use client";
 
-import { ChartPieSlice, Files, Scan, SquaresFour, type Icon } from "@phosphor-icons/react";
+import { Lightning } from "@phosphor-icons/react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useFetch, type Stats } from "@/lib/client";
 import { ThemeToggle } from "./theme";
-import { AppIcon, cn, spring, type Tone } from "./ui";
+import { cn, spring } from "./ui";
 
-const LINKS: { href: string; label: string; icon: Icon; tone: Tone }[] = [
-  { href: "/", label: "Home", icon: SquaresFour, tone: "indigo" },
-  { href: "/scan", label: "Scan", icon: Scan, tone: "blue" },
-  { href: "/documents", label: "Documents", icon: Files, tone: "teal" },
-  { href: "/reports", label: "Reports", icon: ChartPieSlice, tone: "pink" },
+const LINKS = [
+  { href: "/", label: "Overview" },
+  { href: "/scan", label: "Upload" },
+  { href: "/documents", label: "Documents" },
+  { href: "/reports", label: "Reports" },
 ];
 
 function isActive(path: string, href: string) {
   return href === "/" ? path === "/" : path.startsWith(href);
 }
 
-/** Floating glass island on desktop; iOS-style dock on mobile. */
 export function Nav() {
   const path = usePathname();
+  const { data: stats } = useFetch<Stats>("/api/stats");
+  const review = stats?.byStatus.manual_review ?? 0;
+
   return (
-    <>
-      <motion.nav
-        initial={{ y: -40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ ...spring, delay: 0.1 }}
-        className="fixed inset-x-0 top-5 z-30 mx-auto hidden w-max md:block"
+    <header className="sticky top-0 z-30 border-b border-hair bg-[var(--header-bg)] backdrop-blur-md">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm"
       >
-        <div className="glass glass-refract flex items-center gap-1 rounded-full p-1.5 pl-4">
-          <Link href="/" className="relative z-[2] mr-3 flex items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-gradient-to-br from-[#5ac8fa] to-[#4b3ce0] text-[11px] font-bold text-white">D</span>
-            DocScan
-          </Link>
-          {LINKS.map((l) => {
-            const active = isActive(path, l.href);
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  "relative z-[2] rounded-full px-4 py-2 text-[13px] font-medium transition-colors duration-500 ease-spring",
-                  active ? "text-fg" : "text-muted hover:text-fg",
-                )}
-              >
-                {active && (
-                  <motion.span layoutId="nav-pill" transition={spring} className="glass-pill absolute inset-0 -z-10 rounded-full" />
-                )}
-                {l.label}
-              </Link>
-            );
-          })}
-          <span aria-hidden className="relative z-[2] mx-1.5 h-5 w-px bg-ink/15" />
+        Skip to content
+      </a>
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-6 px-4 md:px-8">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
+          <span className="grid h-7 w-7 place-items-center rounded-md bg-accent text-accent-fg">
+            <Lightning size={16} weight="fill" />
+          </span>
+          <span className="leading-tight">
+            <span className="block text-sm font-semibold tracking-tight">KiloWattX</span>
+            <span className="hidden text-[11px] text-muted sm:block">Document verification</span>
+          </span>
+        </Link>
+
+        <nav aria-label="Main" className="hidden h-full items-stretch gap-1 md:flex">
+          {LINKS.map((l) => (
+            <NavLink key={l.href} {...l} active={isActive(path, l.href)} badge={l.href === "/documents" ? review : 0} />
+          ))}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-3">
+          {review > 0 && (
+            <Link
+              href="/documents?status=manual_review"
+              className="hidden items-center gap-1.5 rounded-md bg-warn-soft px-2.5 py-1 text-xs font-medium text-warn transition-opacity hover:opacity-80 sm:inline-flex"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-warn" />
+              {review} awaiting review
+            </Link>
+          )}
           <ThemeToggle id="desktop" />
         </div>
-      </motion.nav>
+      </div>
 
-      {/* Mobile: theme switch floats top-right */}
-      <motion.div
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ ...spring, delay: 0.2 }}
-        className="fixed right-4 top-4 z-30 md:hidden"
-        style={{ marginTop: "env(safe-area-inset-top)" }}
-      >
-        <div className="glass glass-refract rounded-full p-1">
-          <ThemeToggle id="mobile" />
-        </div>
-      </motion.div>
+      {/* Mobile tabs */}
+      <nav aria-label="Main" className="flex h-11 items-stretch gap-1 overflow-x-auto border-t border-hair px-2 md:hidden">
+        {LINKS.map((l) => (
+          <NavLink key={l.href} {...l} active={isActive(path, l.href)} badge={l.href === "/documents" ? review : 0} mobile />
+        ))}
+      </nav>
+    </header>
+  );
+}
 
-      <motion.nav
-        initial={{ y: 80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ ...spring, delay: 0.15 }}
-        className="fixed inset-x-4 bottom-4 z-30 md:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="glass glass-refract flex justify-around rounded-[28px] px-2 py-2.5">
-          {LINKS.map((l) => {
-            const active = isActive(path, l.href);
-            return (
-              <Link key={l.href} href={l.href} className="relative z-[2] flex flex-col items-center gap-1">
-                <motion.span whileTap={{ scale: 0.86 }} transition={spring} animate={{ y: active ? -2 : 0 }}>
-                  <AppIcon icon={l.icon} tone={l.tone} size={42} className={active ? "" : "opacity-60 saturate-50"} />
-                </motion.span>
-                <span className={cn("text-[10px] font-medium", active ? "text-fg" : "text-faint")}>{l.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </motion.nav>
-    </>
+function NavLink({ href, label, active, badge, mobile }: { href: string; label: string; active: boolean; badge: number; mobile?: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "relative flex items-center gap-1.5 whitespace-nowrap px-3 text-sm font-medium transition-colors",
+        active ? "text-fg" : "text-muted hover:text-fg",
+      )}
+    >
+      {label}
+      {badge > 0 && <span className="rounded bg-warn-soft px-1.5 text-[11px] font-semibold tabular text-warn">{badge}</span>}
+      {active && (
+        <motion.span
+          layoutId={mobile ? "nav-underline-m" : "nav-underline"}
+          transition={spring}
+          className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent"
+        />
+      )}
+    </Link>
   );
 }

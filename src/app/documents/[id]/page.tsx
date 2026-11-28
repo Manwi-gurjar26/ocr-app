@@ -24,6 +24,8 @@ import { FIELD_DEFS, formatMoney, ID_TYPE_LABEL, itemsOf, maskAccount, STATUS_LA
 import { DOC_TYPES, isBusy, type DocType, type ReviewAction, type ValidationCheck } from "@/lib/types";
 import { Bezel, cn, ConfidenceBar, Eyebrow, Pill, Reveal, Segmented, spring, StatusBadge, TypeIcon } from "@/components/ui";
 
+const checksLabel = (n: number) => (n === 0 ? "Checks · passed" : `Checks · ${n} issue${n === 1 ? "" : "s"}`);
+
 const METHOD_LABEL: Record<string, string> = { ai: "AI vision", rules: "OCR rules", textract: "Amazon Textract", perfios: "Perfios" };
 const PROVIDER_LABEL: Record<string, string> = { tesseract: "Local OCR", textract: "Amazon Textract", perfios: "Perfios" };
 
@@ -43,7 +45,7 @@ function ValidationPanel({ checks }: { checks: ValidationCheck[] }) {
         .map((c) => {
           const st = CHECK_STYLE[c.status];
           return (
-            <li key={c.id} className="flex items-start gap-3 rounded-2xl bg-well px-4 py-3">
+            <li key={c.id} className="flex items-start gap-3 rounded-lg border border-hair px-3.5 py-2.5">
               <st.I size={18} weight="fill" className={cn("mt-0.5 shrink-0", st.cls)} />
               <div className="min-w-0">
                 <p className="text-sm font-medium">{c.label}</p>
@@ -115,7 +117,7 @@ function Timeline({ id, version }: { id: string; version: string }) {
     <ol className="space-y-3 border-l border-ink/10 pl-4">
       {data.events.map((e) => (
         <li key={e.id} className="relative">
-          <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-ink/30" />
+          <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-hair-strong" />
           <p className="text-sm">
             <span className="font-medium">{STATUS_LABEL[e.toStatus] ?? e.toStatus}</span>
             {e.action !== "system" && <span className="text-muted">{` \u00b7 ${e.action.replace(/_/g, " ")} by ${e.actor}`}</span>}
@@ -191,8 +193,8 @@ export default function DocumentPage() {
   if (!doc)
     return (
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="skeleton h-[60vh] rounded-[2rem]" />
-        <div className="skeleton h-[60vh] rounded-[2rem]" />
+        <div className="skeleton h-[60vh] rounded-xl" />
+        <div className="skeleton h-[60vh] rounded-xl" />
       </div>
     );
 
@@ -205,9 +207,9 @@ export default function DocumentPage() {
   return (
     <>
       <Reveal className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <Link href="/documents" className="glass inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted transition-colors hover:text-fg">
+        <Link href="/documents" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted transition-colors hover:text-fg">
           <ArrowLeft size={14} className="relative z-[2]" />
-          <span className="relative z-[2]">Library</span>
+          <span>Documents</span>
         </Link>
         <div className="flex flex-wrap gap-3">
           <Pill href={`/api/documents/${id}/report?download=1`} icon={DownloadSimple} external>
@@ -220,13 +222,13 @@ export default function DocumentPage() {
       </Reveal>
 
       <Reveal className="mb-10 flex items-center gap-5">
-        <TypeIcon type={type} size={68} />
+        <TypeIcon type={type} size={44} />
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Eyebrow>{TYPE_LABEL[type]}</Eyebrow>
             <StatusBadge status={doc.status} />
           </div>
-          <h1 className="truncate text-3xl font-semibold tracking-[-0.035em] md:text-5xl">{doc.fileName}</h1>
+          <h1 className="truncate text-xl font-semibold tracking-tight md:text-2xl">{doc.fileName}</h1>
           <p className="text-sm text-faint">
             {doc.ocrProvider ? `${PROVIDER_LABEL[doc.ocrProvider] ?? doc.ocrProvider} \u00b7 ` : ""}
             {METHOD_LABEL[doc.extractionMethod ?? "rules"] ?? "OCR rules"} · {new Date(doc.createdAt).toLocaleString("en-IN")}
@@ -238,12 +240,12 @@ export default function DocumentPage() {
       </Reveal>
 
       {doc.status === "failed" && (
-        <div className="mb-6 flex items-center gap-3 rounded-2xl bg-rose-500/10 px-4 py-3 text-sm text-danger">
+        <div role="alert" className="mb-6 flex items-center gap-2.5 rounded-lg border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">
           <WarningCircle size={18} /> {doc.error}
         </div>
       )}
       {doc.status === "manual_review" && doc.validation && (
-        <div className="mb-6 rounded-2xl bg-amber-400/10 px-4 py-3 text-sm text-warn">
+        <div className="mb-6 rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-sm text-warn">
           <p className="flex items-center gap-2 font-medium">
             <Eye size={18} /> Needs manual review
           </p>
@@ -259,7 +261,7 @@ export default function DocumentPage() {
         {/* Preview */}
         <Reveal className="lg:col-span-5">
           <Bezel coreClassName="p-3">
-            <div className="relative overflow-hidden rounded-[1.4rem] bg-well">
+            <div className="relative overflow-hidden rounded-lg bg-well">
               {doc.mimeType === "application/pdf" ? (
                 <iframe src={fileUrl} title="Document preview" className="h-[70vh] w-full" />
               ) : (
@@ -278,7 +280,7 @@ export default function DocumentPage() {
 
         {/* Data */}
         <Reveal delay={0.08} className="lg:col-span-7">
-          <Bezel coreClassName="p-6 md:p-8">
+          <Bezel coreClassName="p-5">
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <Segmented
                 id="detail-tab"
@@ -286,7 +288,7 @@ export default function DocumentPage() {
                 onChange={setTab}
                 options={[
                   { value: "fields", label: "Extracted data" },
-                  { value: "checks", label: doc.validation ? `Checks (${doc.validation.checks.filter((c) => c.status === "fail").length} issues)` : "Checks" },
+                  { value: "checks", label: doc.validation ? checksLabel(doc.validation.checks.filter((c) => c.status === "fail").length) : "Checks" },
                   { value: "history", label: "History" },
                   { value: "text", label: "OCR text" },
                 ]}
@@ -308,7 +310,7 @@ export default function DocumentPage() {
                   )}
                   {!busyNow && (
                     <div>
-                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Reviewer decision</p>
+                      <p className="mb-3 text-[13px] font-medium text-fg">Reviewer decision</p>
                       <ReviewPanel
                         doc={doc}
                         onDone={(d, m) => {
@@ -329,14 +331,14 @@ export default function DocumentPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-2xl bg-well p-5 font-mono text-[12.5px] leading-relaxed text-fg/80"
+                  className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg border border-hair bg-well p-4 font-mono text-[12.5px] leading-relaxed text-fg/80"
                 >
                   {doc.rawText || "No text recognised."}
                 </motion.pre>
               ) : (
                 <motion.div key="fields" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
                   <div>
-                    <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Document type</p>
+                    <p className="mb-2 text-[13px] font-medium text-fg">Document type</p>
                     <select className="field max-w-xs" value={type} onChange={(e) => setType(e.target.value as DocType)}>
                       {DOC_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -403,10 +405,10 @@ export default function DocumentPage() {
 
                   {txns.length > 0 && (
                     <div>
-                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Transactions ({txns.length})</p>
-                      <div className="max-h-80 overflow-auto rounded-2xl bg-well">
+                      <p className="mb-3 text-[13px] font-medium text-fg">Transactions ({txns.length})</p>
+                      <div className="max-h-80 overflow-auto rounded-lg border border-hair">
                         <table className="w-full text-sm">
-                          <thead className="sticky top-0 bg-well text-left text-[11px] uppercase tracking-wider text-faint">
+                          <thead className="sticky top-0 border-b border-hair bg-surface-2 text-left text-xs text-muted">
                             <tr>
                               <th className="p-3 font-medium">Date</th>
                               <th className="p-3 font-medium">Description</th>
@@ -434,10 +436,10 @@ export default function DocumentPage() {
 
                   {items.length > 0 && (
                     <div>
-                      <p className="mb-3 text-[11px] font-medium uppercase tracking-[0.2em] text-faint">Line items</p>
-                      <div className="overflow-hidden rounded-2xl bg-well">
+                      <p className="mb-3 text-[13px] font-medium text-fg">Line items</p>
+                      <div className="overflow-hidden rounded-lg border border-hair">
                         <table className="w-full text-sm">
-                          <thead className="text-left text-[11px] uppercase tracking-wider text-faint">
+                          <thead className="border-b border-hair bg-surface-2 text-left text-xs text-muted">
                             <tr>
                               <th className="p-3 font-medium">Item</th>
                               <th className="p-3 text-right font-medium">Qty</th>
@@ -484,7 +486,7 @@ export default function DocumentPage() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={spring}
-              className="glass glass-strong rounded-full px-5 py-3 text-sm"
+              className="rounded-lg bg-fg px-4 py-2.5 text-sm font-medium text-bg shadow-[var(--shadow-md)]"
             >
               <span className="relative z-[2]">{toast}</span>
             </motion.div>
